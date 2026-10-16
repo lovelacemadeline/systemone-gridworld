@@ -17,3 +17,4 @@ are unique forever — never reuse one, even for abandoned epics.
 | 2 | [Renderers — text, image, live view](epic-2.md) | pending |
 | 3 | [Backends behind the wire schema](epic-3.md) | pending |
 | 4 | [Harness, scoring and reports](epic-4.md) | pending |
+| 5 | [System Two — let the model choose to pause and plan](epic-5.md) | pending |

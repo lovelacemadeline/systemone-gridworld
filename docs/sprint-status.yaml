@@ -73,3 +73,21 @@ epics:
       - id: "4.4"
         title: Memory modes — none, summary, transcript
         status: pending
+  - epic: 5
+    title: System Two — let the model choose to pause and plan
+    status: pending
+    story_home: docs/stories/
+    stories_count: 4
+    stories:
+      - id: "5.1"
+        title: Plan call over the chat route and plan injection into the memory tail
+        status: pending
+      - id: "5.2"
+        title: Triggers — never, at start, on demand via a second noul question
+        status: pending
+      - id: "5.3"
+        title: Viewer plan panel and planning-tick markers
+        status: pending
+      - id: "5.4"
+        title: Report — quality versus cost across triggers
+        status: pending
