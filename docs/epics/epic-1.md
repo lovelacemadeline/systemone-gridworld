@@ -1,6 +1,6 @@
 ---
 type: epic
-status: ready-for-dev
+status: in-progress
 title: Simulator and oracle
 epic: 1
 owner: maddie
@@ -14,7 +14,7 @@ A deterministic gridworld: small rectangular map with walls, one player, a goal,
 ## Stories
 | id | title | status |
 |---|---|---|
-| 1.1 | Observation record and map generation | ready-for-dev |
+| 1.1 | Observation record and map generation | completed |
 | 1.2 | Step dynamics — movement, monsters, combat, termination | ready-for-dev |
 | 1.3 | Scripted oracle policy | ready-for-dev |
 | 1.4 | Episode recording and replay | ready-for-dev |

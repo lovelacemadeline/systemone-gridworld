@@ -3,13 +3,13 @@
 epics:
   - epic: 1
     title: Simulator and oracle
-    status: ready-for-dev
+    status: in-progress
     story_home: docs/stories/
     stories_count: 4
     stories:
       - id: "1.1"
         title: Observation record and map generation
-        status: ready-for-dev
+        status: completed
       - id: "1.2"
         title: Step dynamics — movement, monsters, combat, termination
         status: ready-for-dev
