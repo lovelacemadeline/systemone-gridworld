@@ -81,9 +81,9 @@ epics:
         status: completed
   - epic: 5
     title: System Two — let the model choose to pause and plan
-    status: completed
+    status: in-progress
     story_home: docs/stories/
-    stories_count: 5
+    stories_count: 6
     stories:
       - id: "5.1"
         title: Plan call over the chat route and plan injection into the memory tail
@@ -100,3 +100,6 @@ epics:
       - id: "5.5"
         title: Planner on a different model than the decider
         status: completed
+      - id: "5.6"
+        title: Rule-based replan triggers — every N ticks, on damage, on reversals
+        status: pending
