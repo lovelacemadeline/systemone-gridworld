@@ -84,9 +84,9 @@ epics:
         status: completed
   - epic: 5
     title: System Two — let the model choose to pause and plan
-    status: completed
+    status: in-progress
     story_home: docs/stories/
-    stories_count: 8
+    stories_count: 9
     stories:
       - id: "5.1"
         title: Plan call over the chat route and plan injection into the memory tail
@@ -112,3 +112,6 @@ epics:
       - id: "5.8"
         title: Plans are consumed as the route is walked
         status: completed
+      - id: "5.9"
+        title: Route verifier with feedback — the planner is told when its route hits a wall
+        status: pending

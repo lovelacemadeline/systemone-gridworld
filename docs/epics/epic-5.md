@@ -1,6 +1,6 @@
 ---
 type: epic
-status: completed
+status: in-progress
 title: System Two — let the model choose to pause and plan
 epic: 5
 owner: maddie
@@ -36,6 +36,7 @@ show agreement and completion against decisions per second and total tokens.
 | 5.6 | Rule-based replan triggers — every N ticks, on damage, on reversals | completed |
 | 5.7 | Plan as a seventh action | completed |
 | 5.8 | Plans are consumed as the route is walked | completed |
+| 5.9 | Route verifier with feedback — the planner is told when its route hits a wall | pending |
 
 ## Related
 - Story 4.4 memory modes; golden repo Epic 3 (chat route on the same model)
