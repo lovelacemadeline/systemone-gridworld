@@ -137,6 +137,16 @@ def _play(args: argparse.Namespace) -> int:
     return 0
 
 
+def _compare(args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from .harness.report import RunReport, comparison_table
+
+    reports = [RunReport.model_validate_json(Path(p).read_text()) for p in args.reports]
+    print(comparison_table(reports))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     from .harness.memory import MEMORY_MODES
 
@@ -209,6 +219,10 @@ def build_parser() -> argparse.ArgumentParser:
     be.add_argument("--url", default="http://127.0.0.1:8080", help="http: server base URL")
     be.add_argument("--timeout", type=float, default=30.0, help="http: seconds")
     play.set_defaults(func=_play)
+
+    cmp_ = sub.add_parser("compare", help="one quality-versus-cost table across run reports")
+    cmp_.add_argument("reports", nargs="+", help="run report .json files")
+    cmp_.set_defaults(func=_compare)
 
     orc = sub.add_parser("oracle", help="record one oracle-played episode (for the viewer)")
     orc.add_argument("--seed", type=int, default=0)

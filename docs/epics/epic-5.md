@@ -1,6 +1,6 @@
 ---
 type: epic
-status: in-progress
+status: completed
 title: System Two — let the model choose to pause and plan
 epic: 5
 owner: maddie
@@ -27,7 +27,7 @@ show agreement and completion against decisions per second and total tokens.
 | 5.1 | Plan call over the chat route and plan injection into the memory tail | completed |
 | 5.2 | Triggers — never, at start, on demand via a second noul question | completed |
 | 5.3 | Viewer plan panel and planning-tick markers | completed |
-| 5.4 | Report — quality versus cost across triggers | pending |
+| 5.4 | Report — quality versus cost across triggers | completed |
 
 ## Related
 - Story 4.4 memory modes; golden repo Epic 3 (chat route on the same model)

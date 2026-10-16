@@ -81,7 +81,7 @@ epics:
         status: completed
   - epic: 5
     title: System Two — let the model choose to pause and plan
-    status: in-progress
+    status: completed
     story_home: docs/stories/
     stories_count: 4
     stories:
@@ -96,4 +96,4 @@ epics:
         status: completed
       - id: "5.4"
         title: Report — quality versus cost across triggers
-        status: pending
+        status: completed

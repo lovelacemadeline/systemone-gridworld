@@ -25,7 +25,15 @@ from pydantic import BaseModel, ConfigDict
 from ..sim import WorldConfig
 from .score import EpisodeSummary, RunSummary, summarize_run
 
-__all__ = ["RunMeta", "RunReport", "build_report", "run_name", "to_markdown", "write_report"]
+__all__ = [
+    "RunMeta",
+    "RunReport",
+    "build_report",
+    "comparison_table",
+    "run_name",
+    "to_markdown",
+    "write_report",
+]
 
 
 class RunMeta(BaseModel):
@@ -129,7 +137,49 @@ HEADLINE = [
     ("mean cached tokens", "mean_cached_tokens", False),
     ("mean top probability", "mean_top_probability", False),
     ("mean options offered", "mean_options_offered", False),
+    ("plans (truncated)", ("plans", "plans_truncated"), False),
+    ("plan tokens / plan", "plan_tokens_per_plan", False),
+    ("planning s / share of time", ("planning_s", "planning_share"), False),
+    ("tokens / episode", "tokens_per_episode", False),
+    ("P(pause) mean / p50 / p90", ("pause_p_mean", "pause_p_p50", "pause_p_p90"), False),
 ]
+
+#: The cross-run table (story 5.4): quality and cost side by side.
+COMPARE = [
+    ("completion", "completion", True),
+    ("died", "died", True),
+    ("agreement", "agreement", True),
+    ("distinct/steps", "distinct_cell_ratio", False),
+    ("decisions/s", "decisions_per_s", False),
+    ("options", "mean_options_offered", False),
+    ("plans/ep", "plans_per_episode", False),
+    ("plan tok/plan", "plan_tokens_per_plan", False),
+    ("planning share", "planning_share", True),
+    ("tokens/ep", "tokens_per_episode", False),
+    ("P(pause) mean", "pause_p_mean", False),
+]
+
+
+def run_label(meta: RunMeta) -> str:
+    """A short row label: labels, legal-only, memory knobs, think settings."""
+    parts = [meta.labels, "legal" if meta.legal_only else "all-actions", meta.memory]
+    if meta.memory_k != 3:
+        parts.append(f"k={meta.memory_k}")
+    if meta.memory_visits:
+        parts.append("visits")
+    t = meta.think
+    parts.append(f"think {t['trigger']}/{t['style']}/{t['cost']}" if t else "think never")
+    return ", ".join(parts)
+
+
+def comparison_table(reports: list[RunReport]) -> str:
+    """One markdown table, a row per run."""
+    head = "| run | " + " | ".join(label for label, _, _ in COMPARE) + " |"
+    rows = [head, "|" + "---|" * (len(COMPARE) + 1)]
+    for r in reports:
+        cells = [_fmt(getattr(r.summary, f), pct) for _, f, pct in COMPARE]
+        rows.append(f"| {run_label(r.meta)} | " + " | ".join(cells) + " |")
+    return "\n".join(rows)
 
 
 def headline_table(summary: RunSummary) -> str:
@@ -173,16 +223,16 @@ def to_markdown(report: RunReport) -> str:
         "",
         (
             "| seed | outcome | steps | oracle steps | agreement | distinct/steps | reversals "
-            "| decisions/s | p50 ms | tokens/obs |"
+            "| decisions/s | p50 ms | tokens/obs | plans |"
         ),
-        "|---|---|---|---|---|---|---|---|---|---|",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for e in report.episodes:
         lines.append(
             f"| {e.seed} | {e.outcome} | {e.steps} | {_fmt(e.oracle_steps)} "
             f"| {_fmt(e.agreement, True)} | {_fmt(e.distinct_cell_ratio)} | {e.reversals} "
             f"| {_fmt(e.decisions_per_s)} | {_fmt(e.p50_total_ms)} "
-            f"| {_fmt(e.tokens_per_observation)} |"
+            f"| {_fmt(e.tokens_per_observation)} | {e.plan_count} |"
         )
     return "\n".join(lines) + "\n"
 
