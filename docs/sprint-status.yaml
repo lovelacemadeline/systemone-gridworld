@@ -39,13 +39,13 @@ epics:
         status: completed
   - epic: 3
     title: Backends behind the wire schema
-    status: pending
+    status: in-progress
     story_home: docs/stories/
     stories_count: 4
     stories:
       - id: "3.1"
         title: Vendored schema, request builder and validating adapter protocol
-        status: pending
+        status: completed
       - id: "3.2"
         title: Fake backend — oracle with controllable noise
         status: pending
