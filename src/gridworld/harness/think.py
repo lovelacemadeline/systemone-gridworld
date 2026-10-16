@@ -46,7 +46,7 @@ carries the plan with its route rewritten as the remaining moves
 (``remaining route: east, east.``); once the route is exhausted, or the taken
 actions miss the next move ``route_deviation_limit`` ticks running, the plan
 leaves the tail and the next tick's record carries ``plan_dropped``
-(``exhausted`` / ``deviated``). Under ``action`` a drop also ends the cooldown,
+(``exhausted`` / ``deviated``). Under ``action`` an exhausted drop also ends the cooldown,
 so ``plan`` is offered again at once. The planning tick's own action counts
 against the route, except under ``--think-cost tick`` (that turn is ``wait``).
 A plan without a route stays until replaced, as does every plan with
@@ -61,7 +61,7 @@ from typing import Any, Literal
 
 from ..backends.adapter import Decision
 from ..render.text import to_text
-from ..sim import Action, Observation
+from ..sim import Action, Observation, legal_actions
 from .loop import Directive, Hooks
 from .plan import DEFAULT_PLAN_MAX_TOKENS, Planner, PlanResult, PlanStyle
 from .route import (
@@ -149,7 +149,11 @@ class SystemTwo:
             }.get(r, why.get(r, r))
             for r in reason.split("+")
         )
-        line = f"Recent moves: {recent} | hp {obs.player_hp} | Planning now because: {reasons}"
+        legal = ", ".join(a for a in legal_actions(obs) if a not in ("attack", "wait"))
+        line = (
+            f"Recent moves: {recent} | hp {obs.player_hp} | From here you can move: {legal or 'nowhere'}"
+            f" | Planning now because: {reasons}"
+        )
         if self.plans:
             _, last = self.plans[-1]
             line += (
@@ -195,7 +199,9 @@ class SystemTwo:
         self.dropped = self.route.state
         self._tick["plan_dropped"] = self.dropped
         self.route, self._plan_raw, self.plan_text = None, None, None
-        if self.config.trigger == "action":
+        # A walked-out route earned a fresh plan; a deviated one keeps the cooldown,
+        # or the model replans every few ticks with the same impossible route.
+        if self.config.trigger == "action" and self.dropped == "exhausted":
             self._uncooled = True
 
     # -- hooks ----------------------------------------------------------------------

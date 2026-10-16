@@ -98,3 +98,14 @@ outweighs the map, and a route that is off by one move is fatal.
   exhausted there. The regression test replays the actions actually recorded.
 - No real-model run yet (the GPU was busy). Next step: rerun the evidence
   command on seeds 0 to 4, with and without `--plan-persist`.
+
+## Follow-up (2026-10-16, after watching the 26B thrash)
+
+On pocket maps (seed 7; the seed-0 map's wall bar) the planner wrote a route
+straight into a wall, the tracker dropped it as deviated, the cooldown ended,
+and the model replanned every three to six ticks with the same route. Two
+changes: a deviated drop no longer ends the cooldown (an exhausted one still
+does), and the plan context now carries the same legal-moves information the
+decider gets ("From here you can move: east, south"), so the planner is not
+blind to the wall beside it. Anchors: `think.py::SystemTwo._drop_if_done`,
+`think.py::SystemTwo.context_line`.
