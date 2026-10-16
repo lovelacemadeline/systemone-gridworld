@@ -36,6 +36,8 @@ class RunMeta(BaseModel):
     model: str | None
     mode: str
     memory: str
+    legal_only: bool = False
+    labels: str = "letters"
     git_rev: str | None
     power: dict[str, Any]
     config: WorldConfig
@@ -62,8 +64,18 @@ def _slug(text: str) -> str:
     return re.sub(r"[^A-Za-z0-9.]+", "-", text).strip("-").lower()
 
 
-def run_name(backend: str, mode: str, memory: str, stamp: str | None = None) -> str:
-    return f"{stamp or utc_stamp()}-{_slug(backend)}-{mode}-{memory}"
+def run_name(
+    backend: str,
+    mode: str,
+    memory: str,
+    stamp: str | None = None,
+    *,
+    legal_only: bool = False,
+    labels: str = "letters",
+) -> str:
+    """``<stamp>-<backend>-<mode>-<memory>``, plus ``-legal`` / ``-<labels>`` when not default."""
+    extra = ("-legal" if legal_only else "") + ("" if labels == "letters" else f"-{labels}")
+    return f"{stamp or utc_stamp()}-{_slug(backend)}-{mode}-{memory}{extra}"
 
 
 def prefix_digest(prefix: str) -> str:
@@ -101,6 +113,7 @@ HEADLINE = [
     ("tokens / observation", "tokens_per_observation", False),
     ("mean cached tokens", "mean_cached_tokens", False),
     ("mean top probability", "mean_top_probability", False),
+    ("mean options offered", "mean_options_offered", False),
 ]
 
 
@@ -122,7 +135,10 @@ def to_markdown(report: RunReport) -> str:
         f"# Run {m.name}",
         "",
         f"- backend: `{m.backend}`" + (f" (model `{m.model}`)" if m.model else ""),
-        f"- mode: {m.mode}; memory: {m.memory}",
+        (
+            f"- mode: {m.mode}; memory: {m.memory}; labels: {m.labels}; "
+            f"legal-only: {'on' if m.legal_only else 'off'}"
+        ),
         f"- git rev: {m.git_rev or '-'}; power: {power}",
         (
             f"- map: {m.config.width}x{m.config.height}, {m.config.n_monsters} monsters, "

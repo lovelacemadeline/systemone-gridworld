@@ -27,7 +27,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from .schema import uses_local_extensions
+from .schema import has_image_blocks
 
 __all__ = ["LocalBackend"]
 
@@ -97,11 +97,22 @@ class LocalBackend:
         self.model_id: str = runner.model_id
         self.id = f"local:{self.model_id}" + (":int8" if int8 else "")
 
+    def _label_style_supported(self) -> bool:
+        from mlx_classifiers.schema import RequestOptions
+
+        return "label_style" in RequestOptions.model_fields
+
     def decide(self, request: dict[str, Any]) -> dict[str, Any]:
-        if uses_local_extensions(request):
+        if has_image_blocks(request):
             raise NotImplementedError(
                 "local backend: image mode is not supported yet (mlx-classifiers has no "
                 "vision port); use mode 'text'"
+            )
+        style = (request.get("options") or {}).get("label_style")
+        if style is not None and not self._label_style_supported():
+            raise NotImplementedError(
+                f"local backend: options.label_style={style!r} needs an mlx-classifiers with "
+                "label_style support (pending upstream); use --labels letters"
             )
         req = self._request_cls.model_validate(request)
         temperature = self.calibration.temperature(self.model_id, req.effective_options.readout)

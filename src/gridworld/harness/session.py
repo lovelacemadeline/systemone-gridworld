@@ -79,11 +79,14 @@ def run_session(
     max_ticks: int | None = None,
     on_episode: Callable[[EpisodeSummary], bool] | None = None,
     flash_s: float = 1.0,
+    legal_only: bool = False,
+    labels: str = "letters",
 ) -> SessionResult:
     """Play a session and write its report (see the module docstring)."""
     world = GridWorld(config)
     rev = git_rev()
-    name = run_name(backend.id, mode, memory)
+    name = run_name(backend.id, mode, memory, legal_only=legal_only, labels=labels)
+    label_style = {"letters": None, "words": "option-text"}[labels]
     out = Path(out_dir)
     episode_dir = out / name
     started = datetime.now(UTC).isoformat(timespec="seconds")
@@ -97,6 +100,8 @@ def run_session(
             model=getattr(backend, "model_id", None),
             mode=mode,
             memory=memory,
+            legal_only=legal_only,
+            labels=labels,
             git_rev=rev,
             power=power_state(),
             config=world.config,
@@ -124,6 +129,8 @@ def run_session(
                 hooks=hooks,
                 max_ticks=max_ticks,
                 rev=rev,
+                legal_only=legal_only,
+                label_style=label_style,
             )
             eps.append(s)
             i += 1

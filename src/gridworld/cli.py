@@ -97,6 +97,8 @@ def _play(args: argparse.Namespace) -> int:
             view=view,
             max_ticks=args.max_ticks,
             flash_s=args.flash,
+            legal_only=args.legal_only,
+            labels=args.labels,
         )
     finally:
         if view is not None:
@@ -128,6 +130,15 @@ def build_parser() -> argparse.ArgumentParser:
     play.add_argument("--episodes", type=int, default=5, help="0 = until stopped (Esc/q, Ctrl-C)")
     play.add_argument("--seed", type=int, default=0, help="first seed; episode i uses seed + i")
     play.add_argument("--max-ticks", type=int, default=None, help="cut episodes short")
+    play.add_argument(
+        "--legal-only", action="store_true", help="offer only actions that do something"
+    )
+    play.add_argument(
+        "--labels",
+        choices=["letters", "words"],
+        default="letters",
+        help="answer labels: A-F letters (default) or the action words (options.label_style)",
+    )
     play.add_argument("--prefix", default=None, help="file replacing the default rules prefix")
     play.add_argument("--out", default="runs")
     play.add_argument("--view", action="store_true", help="watch in a window (needs [view])")

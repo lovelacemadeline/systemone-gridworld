@@ -72,6 +72,8 @@ def run_episode(
     hooks: Hooks | None = None,
     max_ticks: int | None = None,
     rev: str | None = None,
+    legal_only: bool = False,
+    label_style: str | None = None,
 ) -> EpisodeSummary:
     """Play one episode of ``seed`` with ``backend``; record it and return its summary."""
     memory = memory or NoMemory()
@@ -100,7 +102,13 @@ def run_episode(
             if extra:
                 tail = f"{tail} | {extra}" if tail else extra
             built = build_request(
-                obs, mode=mode, prefix=prefix, memory_tail=tail, history=memory.history()
+                obs,
+                mode=mode,
+                prefix=prefix,
+                memory_tail=tail,
+                history=memory.history(),
+                legal_only=legal_only,
+                label_style=label_style,
             )
             t1 = time.perf_counter()
             decision = call(backend, built.request)
@@ -121,10 +129,19 @@ def run_episode(
                 usage=decision.usage,
                 timing=timing,
                 after=result.observation,
+                offered=built.offered,
             )
             ticks.append(log)
             if rec is not None:
-                rec.tick(obs, decision.action, best, decision.probabilities, timing, decision.usage)
+                rec.tick(
+                    obs,
+                    decision.action,
+                    best,
+                    decision.probabilities,
+                    timing,
+                    decision.usage,
+                    built.offered,
+                )
             memory.observe(obs, built.text, decision.action, result.observation)
             if hooks.after_tick:
                 hooks.after_tick(log)

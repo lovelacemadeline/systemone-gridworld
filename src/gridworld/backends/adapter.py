@@ -3,7 +3,8 @@
 :func:`call` validates the request, calls the backend on a deep copy (so a
 backend cannot mutate the caller's request), measures wall time, validates the
 response, then checks the parts the schema cannot express: the ``action``
-answer exists, is a ``choice``, picks one of the six actions, and gives a
+answer exists, is a ``choice``, picks one of the offered actions (the
+question's ``criteria``; all six unless the request is legal-only), and gives a
 probability for each of them. Any failure raises :class:`SchemaError` or
 :class:`BackendError` — a drifting backend fails loudly, never silently.
 """
@@ -29,7 +30,10 @@ class BackendError(ValueError):
 
 
 class Decision(BaseModel):
-    """One answered tick: what to step, how sure, what it cost."""
+    """One answered tick: what to step, how sure, what it cost.
+
+    ``probabilities`` covers the offered actions only (all six by default).
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -57,7 +61,7 @@ def call(backend: Backend, request: dict[str, Any], *, question: str = QUESTION)
         raise BackendError(
             f"{backend.id}: answer {question!r} is {answer.get('type')!r}, not choice"
         )
-    names = [a.value for a in Action]
+    names = list(request["questions"][question]["criteria"])
     if answer["choice"] not in names:
         raise BackendError(f"{backend.id}: choice {answer['choice']!r} is not one of {names}")
     probs = answer["probabilities"]

@@ -10,7 +10,8 @@ One JSON object per line, discriminated by ``kind``::
     ...
     {"kind": "end", "observation": {...}, "reward": 1, "reason": "goal"}
 
-``usage`` on a tick line (the backend's token counts) is optional, as is the
+``usage`` on a tick line (the backend's token counts) and ``offered`` (the
+actions the request offered, story 4.5) are optional, as is the
 header's ``memory`` mode (default ``none``); both are additive within v1.
 An ``end`` reason other than goal/dead/timeout (``stopped``, ``max_ticks``)
 marks an episode the harness cut short.
@@ -83,6 +84,7 @@ class TickRecord(BaseModel):
     oracle_action: Action
     timing: dict[str, float] | None = None
     usage: dict[str, int] | None = None
+    offered: tuple[Action, ...] | None = None
 
 
 class EpisodeEnd(BaseModel):
@@ -149,6 +151,7 @@ class EpisodeRecorder:
         probabilities: dict[Action, float] | None = None,
         timing: dict[str, float] | None = None,
         usage: dict[str, int] | None = None,
+        offered: tuple[Action, ...] | None = None,
     ) -> None:
         """Record the decision taken from ``observation``."""
         self._write(
@@ -159,6 +162,7 @@ class EpisodeRecorder:
                 oracle_action=oracle_action,
                 timing=timing,
                 usage=usage,
+                offered=offered,
             )
         )
 

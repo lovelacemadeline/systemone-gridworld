@@ -47,6 +47,14 @@ def test_image_mode_is_not_implemented():
         fake_local().decide(req)
 
 
+def test_label_style_alone_is_not_mistaken_for_image_mode():
+    req = build_request(generate_map(3), label_style="option-text").request
+    try:  # FakeRunner's toy tokenizer may reject word labels; that is not the point here
+        fake_local().decide(req)
+    except Exception as exc:  # noqa: BLE001
+        assert "image mode" not in str(exc)
+
+
 def test_registry_passes_kwargs_through():
     b = make_backend("local", runner=FakeRunner(), calibration=CalibrationConfig())
     assert b.id == "local:fake"

@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from ..render.text import to_text
-from ..sim import Action, Observation
+from ..sim import Action, Observation, legal_actions
 from .schema import IMAGE_BLOCK_TYPE
 
 __all__ = [
@@ -69,6 +69,7 @@ class BuiltRequest:
     request: dict[str, Any]
     text: str
     mode: Mode
+    offered: tuple[Action, ...] = tuple(Action)
 
 
 def build_state(turns: list[str], png: bytes | None = None) -> str | list[Any]:
@@ -90,9 +91,17 @@ def build_request(
     history: list[str] | tuple[str, ...] = (),
     model: str | None = None,
     options: dict[str, Any] | None = None,
+    legal_only: bool = False,
+    label_style: str | None = None,
     tile: int = 16,
 ) -> BuiltRequest:
-    """Build the one-question ``choice`` request for ``obs`` in ``mode``."""
+    """Build the one-question ``choice`` request for ``obs`` in ``mode``.
+
+    ``legal_only`` offers only :func:`~gridworld.sim.legal_actions` (story 4.5;
+    off by default so the baseline sees all six). ``label_style`` sets
+    ``options.label_style`` (a pending-upstream local extension); ``None`` or
+    ``"letters"`` leaves it out, which is the upstream default.
+    """
     text = to_text(obs)
     if memory_tail:
         text = f"{text} | {memory_tail}"
@@ -105,6 +114,7 @@ def build_request(
         state = build_state(turns, to_png(obs, tile))
     else:
         raise ValueError(f"unknown mode {mode!r}; expected 'text' or 'image'")
+    offered = legal_actions(obs) if legal_only else tuple(Action)
     request: dict[str, Any] = {}
     if model is not None:
         request["model"] = model
@@ -115,10 +125,13 @@ def build_request(
             QUESTION: {
                 "type": "choice",
                 "instructions": "Which action next?",
-                "criteria": dict(ACTION_CRITERIA),
+                "criteria": {a.value: ACTION_CRITERIA[a.value] for a in offered},
             }
         },
     }
+    options = dict(options or {})
+    if label_style not in (None, "letters"):
+        options["label_style"] = label_style
     if options:
-        request["options"] = dict(options)
-    return BuiltRequest(request=request, text=text, mode=mode)
+        request["options"] = options
+    return BuiltRequest(request=request, text=text, mode=mode, offered=offered)

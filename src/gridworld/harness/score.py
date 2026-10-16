@@ -18,6 +18,8 @@ Definitions (all computed from the per-tick :class:`TickLog` list):
   ``tokens_per_observation`` is their sum (the golden library counts cached
   prefix tokens separately from computed ones).
 - ``mean_top_probability``: mean of the largest probability per tick.
+- ``mean_options_offered``: mean number of actions the request offered (6
+  unless legal-only, story 4.5).
 """
 
 from __future__ import annotations
@@ -54,6 +56,7 @@ class TickLog(BaseModel):
     usage: dict[str, int]
     timing: dict[str, float]
     after: Observation
+    offered: tuple[Action, ...] = tuple(Action)
 
 
 class EpisodeSummary(BaseModel):
@@ -76,6 +79,7 @@ class EpisodeSummary(BaseModel):
     mean_cached_tokens: float | None
     tokens_per_observation: float | None
     mean_top_probability: float | None
+    mean_options_offered: float | None = None
     record_path: str | None = None
     #: Raw per-tick latencies, kept so run-level percentiles are over ticks, not episodes.
     tick_total_ms: list[float] = []
@@ -136,6 +140,7 @@ def summarize_episode(
         mean_cached_tokens=_mean(cached),
         tokens_per_observation=_mean([a + b for a, b in zip(inp, cached, strict=True)]),
         mean_top_probability=_mean(tops),
+        mean_options_offered=_mean([float(len(t.offered)) for t in ticks]),
         record_path=record_path,
         tick_total_ms=total,
         tick_backend_ms=backend,
@@ -171,6 +176,7 @@ class RunSummary(BaseModel):
     tokens_per_observation: float | None
     mean_cached_tokens: float | None
     mean_top_probability: float | None
+    mean_options_offered: float | None = None
 
 
 def _tick_weighted(eps: list[EpisodeSummary], field: str) -> float | None:
@@ -206,4 +212,5 @@ def summarize_run(eps: list[EpisodeSummary]) -> RunSummary:
         tokens_per_observation=_tick_weighted(eps, "tokens_per_observation"),
         mean_cached_tokens=_tick_weighted(eps, "mean_cached_tokens"),
         mean_top_probability=_tick_weighted(eps, "mean_top_probability"),
+        mean_options_offered=_tick_weighted(eps, "mean_options_offered"),
     )

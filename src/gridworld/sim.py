@@ -51,6 +51,7 @@ __all__ = [
     "attack_target",
     "bfs_path",
     "generate_map",
+    "legal_actions",
     "manhattan",
     "neighbors",
 ]
@@ -201,6 +202,26 @@ def attack_target(obs: Observation) -> Monster | None:
     """The monster ``attack`` hits: the adjacent one with least hp, then lowest id."""
     near = [m for m in obs.monsters if adjacent(m.pos, obs.player)]
     return min(near, key=lambda m: (m.hp, m.id), default=None)
+
+
+def legal_actions(obs: Observation) -> tuple[Action, ...]:
+    """The actions that do something from ``obs``, in :class:`Action` order.
+
+    A move is legal when its target is in bounds, not a wall and not a monster
+    (each of those makes :meth:`GridWorld.step` a no-op); ``attack`` when a
+    monster is edge-adjacent (:func:`attack_target`); ``wait`` always. Shares the
+    movement rules with ``step`` so the two cannot drift (story 4.5).
+    """
+    monsters = {m.pos for m in obs.monsters}
+    out = []
+    for action, (dx, dy) in MOVES.items():
+        target = (obs.player[0] + dx, obs.player[1] + dy)
+        if obs.in_bounds(target) and target not in obs.walls and target not in monsters:
+            out.append(action)
+    if attack_target(obs) is not None:
+        out.append(Action.ATTACK)
+    out.append(Action.WAIT)
+    return tuple(out)
 
 
 def generate_map(seed: int, config: WorldConfig | None = None) -> Observation:
