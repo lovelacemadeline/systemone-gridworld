@@ -21,13 +21,13 @@ epics:
         status: completed
   - epic: 2
     title: Renderers — text, image, live view
-    status: pending
+    status: in-progress
     story_home: docs/stories/
     stories_count: 4
     stories:
       - id: "2.1"
         title: Text renderer with stable-first layout
-        status: pending
+        status: completed
       - id: "2.2"
         title: Image renderer and the shared tile code
         status: pending

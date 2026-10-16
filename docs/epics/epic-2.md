@@ -1,6 +1,6 @@
 ---
 type: epic
-status: pending
+status: in-progress
 title: Renderers — text, image, live view
 epic: 2
 owner: maddie
@@ -14,7 +14,7 @@ Pure functions of the observation: `to_text` (stable parts first, volatile line 
 ## Stories
 | id | title | status |
 |---|---|---|
-| 2.1 | Text renderer with stable-first layout | pending |
+| 2.1 | Text renderer with stable-first layout | completed |
 | 2.2 | Image renderer and the shared tile code | pending |
 | 2.3 | Lossless round-trip test between text, image and observation | pending |
 | 2.4 | Live view window with probability bars and oracle overlay | pending |
