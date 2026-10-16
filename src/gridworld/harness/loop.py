@@ -139,6 +139,8 @@ def run_episode(
             elif max_ticks is not None and len(ticks) >= max_ticks:
                 reason = "max_ticks"
             if reason is not None:
+                if view is not None and open_:
+                    view.update(obs)  # the terminal state, for the end-of-episode flash
                 break
     except KeyboardInterrupt:
         reason = "stopped"

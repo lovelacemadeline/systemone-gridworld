@@ -22,7 +22,8 @@ pygame (the ``view`` extra) is imported only when a window opens;
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+import time
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from types import TracebackType
 from typing import Self
@@ -42,6 +43,8 @@ BAR_BG = (52, 52, 60)
 BAR_OTHER = (120, 120, 132)
 TEXT = (230, 230, 230)
 ORACLE_OUTLINE = (255, 255, 255)
+BANNER_BG = (16, 16, 20)
+INFO_Y = 60 + 6 * 28 + 16
 
 
 class ViewUnavailable(ImportError):
@@ -90,13 +93,19 @@ def render_frame(
     action: Action | None = None,
     oracle_action: Action | None = None,
     decisions_per_s: float | None = None,
+    info_lines: Sequence[str] = (),
+    banner: str | None = None,
     tile: int = 16,
     scale: int = 3,
 ) -> Image.Image:
-    """The full window contents as an RGB image (pure; no pygame)."""
+    """The full window contents as an RGB image (pure; no pygame).
+
+    ``info_lines`` are drawn under the bars (session tallies in continuous
+    play); ``banner`` is a centred box over the map (the end-of-episode flash).
+    """
     board = to_image(obs, tile)
     board = board.resize((board.width * scale, board.height * scale), Image.Resampling.NEAREST)
-    height = max(board.height, 8 * 28 + 24)
+    height = max(board.height, 8 * 28 + 24, INFO_Y + 18 * len(info_lines) + 12)
     frame = Image.new("RGB", (board.width + PANEL_WIDTH, height), PANEL_BG)
     frame.paste(board, (0, 0))
     draw = ImageDraw.Draw(frame)
@@ -125,6 +134,14 @@ def render_frame(
                 outline=ORACLE_OUTLINE,
                 width=2,
             )
+    for i, line in enumerate(info_lines):
+        draw.text((x0, INFO_Y + i * 18), line, fill=TEXT, font=font)
+    if banner:
+        left, top, right, bottom = draw.textbbox((0, 0), banner, font=font)
+        w, h = right - left + 40, bottom - top + 24
+        bx, by = (board.width - w) // 2, (board.height - h) // 2
+        draw.rectangle((bx, by, bx + w, by + h), fill=BANNER_BG, outline=ORACLE_OUTLINE, width=2)
+        draw.text((bx + 20 - left, by + 12 - top), banner, fill=TEXT, font=font)
     return frame
 
 
@@ -146,6 +163,9 @@ class LiveView:
         self.tile, self.scale, self.fps = tile, scale, fps
         self.rate = DecisionRate()
         self.last_frame: Image.Image | None = None
+        self.last_obs: Observation | None = None
+        #: Lines drawn under the bars on every frame (session tallies).
+        self.info_lines: list[str] = []
         self.open = True
 
     def _pump(self) -> bool:
@@ -169,24 +189,50 @@ class LiveView:
         if not self._pump():
             return False
         self.rate.add(timing)
-        frame = render_frame(
-            obs,
-            probabilities=probabilities,
-            action=action,
-            oracle_action=oracle_action,
-            decisions_per_s=self.rate.per_second,
-            tile=self.tile,
-            scale=self.scale,
+        self.last_obs = obs
+        self._show(
+            render_frame(
+                obs,
+                probabilities=probabilities,
+                action=action,
+                oracle_action=oracle_action,
+                decisions_per_s=self.rate.per_second,
+                info_lines=self.info_lines,
+                tile=self.tile,
+                scale=self.scale,
+            )
         )
+        if self.fps > 0:
+            self._clock.tick(self.fps)
+        return True
+
+    def flash(self, text: str, seconds: float = 1.0, obs: Observation | None = None) -> bool:
+        """Show ``text`` over the map for ``seconds`` (pumping events); returns ``open``."""
+        obs = obs or self.last_obs
+        if obs is None or not self._pump():
+            return self.open
+        self._show(
+            render_frame(
+                obs,
+                decisions_per_s=self.rate.per_second,
+                info_lines=self.info_lines,
+                banner=text,
+                tile=self.tile,
+                scale=self.scale,
+            )
+        )
+        end = time.monotonic() + seconds
+        while time.monotonic() < end and self._pump():
+            self._clock.tick(30)
+        return self.open
+
+    def _show(self, frame: Image.Image) -> None:
         pg = self._pg
         if self._screen is None or self._screen.get_size() != frame.size:
             self._screen = pg.display.set_mode(frame.size)
         self._screen.blit(pg.image.frombytes(frame.tobytes(), frame.size, "RGB"), (0, 0))
         pg.display.flip()
         self.last_frame = frame
-        if self.fps > 0:
-            self._clock.tick(self.fps)
-        return True
 
     def hold(self) -> None:
         """Keep the last frame up until the window is closed."""

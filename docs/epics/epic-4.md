@@ -16,7 +16,7 @@ The loop: observe, render, ask one `choice`, act, log. Scoring: oracle agreement
 |---|---|---|
 | 4.1 | Episode loop and decision log | completed |
 | 4.2 | Scoring and the run report | completed |
-| 4.3 | play CLI and headless CI run with the fake backend | pending |
+| 4.3 | play CLI and headless CI run with the fake backend | completed |
 | 4.4 | Memory modes — none, summary, transcript | pending |
 ## Related
 - [PRD](../product/prd-gridworld-benchmark.md)

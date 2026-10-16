@@ -69,7 +69,7 @@ epics:
         status: completed
       - id: "4.3"
         title: play CLI and headless CI run with the fake backend
-        status: pending
+        status: completed
       - id: "4.4"
         title: Memory modes — none, summary, transcript
         status: pending
