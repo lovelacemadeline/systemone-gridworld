@@ -48,7 +48,7 @@ epics:
         status: completed
       - id: "3.2"
         title: Fake backend — oracle with controllable noise
-        status: pending
+        status: completed
       - id: "3.3"
         title: In-process backend over mlx-classifiers decide()
         status: pending

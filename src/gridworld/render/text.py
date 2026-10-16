@@ -28,9 +28,11 @@ seed and the reserved ``items`` field are not rendered.
 
 from __future__ import annotations
 
-from ..sim import MOVES, Cell, Observation, adjacent
+import re
 
-__all__ = ["GLYPHS", "LEGEND", "compass", "status_line", "to_text"]
+from ..sim import MOVES, Action, Cell, Monster, Observation, adjacent
+
+__all__ = ["GLYPHS", "LEGEND", "compass", "parse_text", "status_line", "to_text"]
 
 GLYPHS = {"wall": "#", "floor": ".", "player": "@", "goal": "G", "monster": "M"}
 
@@ -98,3 +100,55 @@ def to_text(obs: Observation) -> str:
         f"Map {obs.width}x{obs.height}, x across (0-{obs.width - 1}), y down (0-{obs.height - 1}):"
     )
     return "\n".join([LEGEND, head, *_map_lines(obs), status_line(obs)])
+
+
+_MAP_HEAD = re.compile(r"^Map (\d+)x(\d+),")
+_STATUS = re.compile(
+    r"^Status: hp (\d+) \| tick (\d+) \| last (\w+) \| adjacent M: [^|]+ \| goal: ([\w-]+)"
+    r" \| monsters: (.*)$"
+)
+_MONSTER = re.compile(r"M(\d+) \((\d+),(\d+)\) hp (\d+)")
+
+
+def parse_text(text: str) -> Observation:
+    """Invert :func:`to_text` (lines after the status line, e.g. a memory tail, are ignored).
+
+    For backends that must act from the rendered state alone (ADR-0002), such
+    as the fake backend. The seed is not rendered, so it comes back as 0.
+    Raises ``ValueError`` on text that is not a rendered observation.
+    """
+    lines = text.split("\n")
+    try:
+        i = next(k for k, ln in enumerate(lines) if _MAP_HEAD.match(ln))
+        width, height = map(int, _MAP_HEAD.match(lines[i]).groups())
+        rows = [ln.lstrip().split(" ", 1)[1] for ln in lines[i + 2 : i + 2 + height]]
+        status = _STATUS.match(lines[i + 2 + height])
+    except (StopIteration, IndexError) as exc:
+        raise ValueError("not a rendered observation") from exc
+    if status is None or len(rows) != height or any(len(r) != width for r in rows):
+        raise ValueError("not a rendered observation")
+    cells = {(x, y): ch for y, row in enumerate(rows) for x, ch in enumerate(row)}
+    walls = frozenset(c for c, ch in cells.items() if ch == GLYPHS["wall"])
+    (player,) = [c for c, ch in cells.items() if ch == GLYPHS["player"]]
+    hp, tick, last, goal_hint, mlist = status.groups()
+    goal = (
+        player
+        if goal_hint == "here"
+        else next(c for c, ch in cells.items() if ch == GLYPHS["goal"])
+    )
+    monsters = tuple(
+        Monster(id=int(i), pos=(int(x), int(y)), hp=int(h))
+        for i, x, y, h in _MONSTER.findall(mlist)
+    )
+    return Observation(
+        width=width,
+        height=height,
+        walls=walls,
+        player=player,
+        goal=goal,
+        monsters=monsters,
+        player_hp=int(hp),
+        tick=int(tick),
+        last_action=None if last == "none" else Action(last),
+        seed=0,
+    )

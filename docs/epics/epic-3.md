@@ -15,7 +15,7 @@ One adapter protocol: request dict in, response dict out, validated both ways ag
 | id | title | status |
 |---|---|---|
 | 3.1 | Vendored schema, request builder and validating adapter protocol | completed |
-| 3.2 | Fake backend — oracle with controllable noise | pending |
+| 3.2 | Fake backend — oracle with controllable noise | completed |
 | 3.3 | In-process backend over mlx-classifiers decide() | pending |
 | 3.4 | HTTP backend for /v1/systemone servers | pending |
 ## Related
