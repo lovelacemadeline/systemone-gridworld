@@ -59,7 +59,7 @@ epics:
     title: Harness, scoring and reports
     status: pending
     story_home: docs/stories/
-    stories_count: 3
+    stories_count: 4
     stories:
       - id: "4.1"
         title: Episode loop and decision log
@@ -69,4 +69,7 @@ epics:
         status: pending
       - id: "4.3"
         title: play CLI and headless CI run with the fake backend
+        status: pending
+      - id: "4.4"
+        title: Memory modes — none, summary, transcript
         status: pending
