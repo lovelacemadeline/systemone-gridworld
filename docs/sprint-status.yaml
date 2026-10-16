@@ -15,7 +15,7 @@ epics:
         status: completed
       - id: "1.3"
         title: Scripted oracle policy
-        status: ready-for-dev
+        status: completed
       - id: "1.4"
         title: Episode recording and replay
         status: ready-for-dev

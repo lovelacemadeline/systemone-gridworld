@@ -1,5 +1,6 @@
 """Deterministic gridworld benchmark for System One decision backends."""
 
+from .oracle import oracle, play_episode
 from .sim import (
     Action,
     GridWorld,
@@ -19,4 +20,6 @@ __all__ = [
     "StepResult",
     "WorldConfig",
     "generate_map",
+    "oracle",
+    "play_episode",
 ]
