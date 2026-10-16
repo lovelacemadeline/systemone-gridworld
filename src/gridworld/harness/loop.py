@@ -26,6 +26,20 @@ view (``prefix_reloaded(tick, version)``).
 The episode ends when the sim ends it, when ``max_ticks`` is reached
 (``max_ticks``), or when the view is closed (``stopped``).
 
+**Stuck and skip** (story 4.9): the loop counts consecutive immediate
+reversals (a move that puts the player back on the cell it occupied two ticks
+earlier, having moved away; the same test as
+:func:`~gridworld.harness.score.oscillation`). Any other tick resets the count,
+and so does a tick on which System Two made a plan (``tick_extras()["plan"]``),
+so a replan gets a fresh chance. With ``stuck_after`` N > 0, the episode ends
+``stuck`` with reward -1 when the count reaches N; the end record carries
+``stuck_after`` and ``consecutive_reversals``. A view with ``skip_requested``
+set (the N key) ends the episode ``skipped`` with reward 0 after the tick; the
+loop clears the flag at episode start and on use. A view exposing
+``reversal_streak`` is told ``(count, stuck_after)`` every tick. Precedence on
+one tick: the sim's ending, ``stopped``, ``skipped``, ``stuck``,
+``max_ticks``.
+
 **Hooks** (:class:`Hooks`) are the seam for System Two (Epic 5):
 ``before_decision(obs, tick)`` may return text that is appended to this tick's
 memory tail (a plan), ``extra_questions`` adds questions (the ``pause_to_plan``
@@ -116,6 +130,7 @@ def run_episode(
     label_style: str | None = None,
     planner: str | None = None,
     image_only: bool = False,
+    stuck_after: int = 0,
 ) -> EpisodeSummary:
     """Play one episode of ``seed`` with ``backend``; record it and return its summary."""
     memory = memory or NoMemory()
@@ -140,6 +155,10 @@ def run_episode(
         rec = EpisodeRecorder(record_path, header)
     ticks: list[TickLog] = []
     reason, reward = None, 0
+    streak = 0  # consecutive immediate reversals (story 4.9)
+    cells = [obs.player]
+    if view is not None and hasattr(view, "skip_requested"):
+        view.skip_requested = False
     try:
         while True:
             best = oracle(obs)
@@ -243,6 +262,11 @@ def run_episode(
                     frame_sha256=built.frame_sha256,
                 )
             memory.observe(obs, built.text, action, result.observation)
+            cells.append(result.observation.player)
+            reversed_ = len(cells) >= 3 and cells[-1] == cells[-3] and cells[-1] != cells[-2]
+            streak = streak + 1 if reversed_ and extras.get("plan") is None else 0
+            if view is not None and hasattr(view, "reversal_streak"):
+                view.reversal_streak = (streak, stuck_after)
             if hooks.after_tick:
                 hooks.after_tick(log)
             open_ = True
@@ -256,10 +280,15 @@ def run_episode(
                 reason, reward = result.info["reason"], result.reward
             elif not open_:
                 reason = "stopped"
+            elif view is not None and getattr(view, "skip_requested", False):
+                view.skip_requested = False
+                reason = "skipped"
+            elif stuck_after > 0 and streak >= stuck_after:
+                reason, reward = "stuck", -1
             elif max_ticks is not None and len(ticks) >= max_ticks:
                 reason = "max_ticks"
             if reason is not None:
-                if view is not None and open_:
+                if view is not None and open_ and reason != "skipped":
                     # Story 1.5: the terminal state (the move onto G, the fatal hit) with
                     # the last tick's bars, held one frame before the end-of-episode flash.
                     view.update(obs, shown, action, best)
@@ -272,7 +301,12 @@ def run_episode(
     finally:
         if rec is not None:
             if reason is not None:
-                rec.end(obs, reward, reason)
+                stuck = (
+                    {"stuck_after": stuck_after, "consecutive_reversals": streak}
+                    if stuck_after > 0
+                    else {}
+                )
+                rec.end(obs, reward, reason, **stuck)
             rec.close()
     return summarize_episode(
         seed,

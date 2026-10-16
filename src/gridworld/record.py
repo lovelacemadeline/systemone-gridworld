@@ -17,8 +17,9 @@ header's ``memory`` mode (default ``none``); both are additive within v1.
 Story 4.8 adds the header's ``prefix_sha256`` (the rules prefix at episode
 start) and a tick's ``prefix_reloaded`` (the new prefix version, on the tick a
 hot reload took effect).
-An ``end`` reason other than goal/dead/timeout (``stopped``, ``max_ticks``)
-marks an episode the harness cut short.
+An ``end`` reason other than goal/dead/timeout (``stopped``, ``max_ticks``,
+and story 4.9's ``stuck`` / ``skipped``) marks an episode the harness ended;
+story 4.9 adds the end line's ``stuck_after`` and ``consecutive_reversals``.
 
 A ``tick`` line holds the observation the decision was made on and the action
 taken from it; the first one is ``GridWorld.reset(seed)``. The ``end`` line
@@ -117,6 +118,10 @@ class EpisodeEnd(BaseModel):
     observation: Observation
     reward: int
     reason: str
+    #: Story 4.9: the ``--stuck-after`` rule (when on) and the consecutive
+    #: immediate reversals at the end (``stuck`` when it reached the rule).
+    stuck_after: int | None = None
+    consecutive_reversals: int | None = None
 
 
 class Episode(BaseModel):
@@ -202,9 +207,25 @@ class EpisodeRecorder:
             )
         )
 
-    def end(self, observation: Observation, reward: int, reason: str) -> None:
+    def end(
+        self,
+        observation: Observation,
+        reward: int,
+        reason: str,
+        *,
+        stuck_after: int | None = None,
+        consecutive_reversals: int | None = None,
+    ) -> None:
         """Record the terminal observation."""
-        self._write(EpisodeEnd(observation=observation, reward=reward, reason=reason))
+        self._write(
+            EpisodeEnd(
+                observation=observation,
+                reward=reward,
+                reason=reason,
+                stuck_after=stuck_after,
+                consecutive_reversals=consecutive_reversals,
+            )
+        )
 
     def close(self) -> None:
         self._fh.close()

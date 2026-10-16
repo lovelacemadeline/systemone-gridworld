@@ -4,7 +4,7 @@ status: completed
 title: Harness, scoring and reports
 epic: 4
 owner: maddie
-updated: 2026-10-16
+updated: 2026-10-17
 ---
 
 # Epic 4 — Harness, scoring and reports
@@ -22,5 +22,6 @@ The loop: observe, render, ask one `choice`, act, log. Scoring: oracle agreement
 | 4.6 | Summary memory knobs — recent-action length and visit counts | completed |
 | 4.7 | Frame history as a transcript — past frames stay cached | completed |
 | 4.8 | Edit the rules prefix live — hot reload and an edit key | completed |
+| 4.9 | Stuck rule and a skip key | completed |
 ## Related
 - [PRD](../product/prd-gridworld-benchmark.md)

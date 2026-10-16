@@ -22,6 +22,10 @@ with ``prefix v<N> (file|default)`` and, for :data:`RELOAD_NOTE_S` seconds after
 a hot reload, ``prefix reloaded at tick T``. P calls ``on_prefix_key`` (the
 session's :func:`~gridworld.harness.prompts.edit_prefix`).
 
+Story 4.9: N sets ``skip_requested`` (the loop ends the episode ``skipped``),
+and the loop's ``reversal_streak`` ``(count, stuck_after)`` is appended to the
+``reversals/ep`` tally line as ``in a row K`` (``K/N`` with ``--stuck-after``).
+
 pygame (the ``view`` extra) is imported only when a window opens;
 :class:`ViewUnavailable` names the extra to install.
 """
@@ -54,7 +58,12 @@ TEXT = (230, 230, 230)
 ORACLE_OUTLINE = (255, 255, 255)
 BANNER_BG = (16, 16, 20)
 INFO_Y = 60 + 6 * 28 + 16
-END_FLASH = {"goal": "WON", "dead": "DIED", "timeout": "TIMED OUT"}  # by EpisodeEnd.reason
+END_FLASH = {
+    "goal": "WON",
+    "dead": "DIED",
+    "timeout": "TIMED OUT",
+    "stuck": "STUCK",
+}  # by EpisodeEnd.reason
 RECENT_TICKS = 10  # the rolling "now X/s" window (story 1.5)
 PLAN_BAR = (90, 160, 240)  # the plan option's bar (story 5.7)
 DROPPED = (200, 160, 90)  # "plan dropped (...)" in the plan panel (story 5.8)
@@ -285,6 +294,10 @@ class LiveView:
         self.prefix: Any = None
         self.on_prefix_key: Callable[[], Any] | None = None
         self.reload_note: tuple[int, float] | None = None
+        #: Story 4.9: N asks the loop to skip the episode; the loop's live
+        #: consecutive-reversal count and the stuck rule (0 = off).
+        self.skip_requested = False
+        self.reversal_streak: tuple[int, int] = (0, 0)
         self.open = True
 
     def _pump(self) -> bool:
@@ -296,6 +309,8 @@ class LiveView:
                 self.open = False
             elif event.type == pg.KEYDOWN and event.key == pg.K_p and self.on_prefix_key:
                 self.on_prefix_key()
+            elif event.type == pg.KEYDOWN and event.key == pg.K_n:
+                self.skip_requested = True
         return self.open
 
     def prefix_reloaded(self, tick: int, version: int) -> None:
@@ -313,8 +328,17 @@ class LiveView:
             lines.append("")  # keep the panel height stable when the note goes
         return lines
 
+    def streak_text(self) -> str:
+        """``in a row K`` (``K/N`` when the stuck rule is on): the live reversal streak."""
+        count, limit = self.reversal_streak
+        return f"in a row {count}/{limit}" if limit else f"in a row {count}"
+
     def _info(self) -> list[str]:
-        return [*self.info_lines, *self.prefix_lines()]
+        lines = [
+            f"{line}   {self.streak_text()}" if line.startswith("reversals/ep") else line
+            for line in self.info_lines
+        ]
+        return [*lines, *self.prefix_lines()]
 
     def update(
         self,

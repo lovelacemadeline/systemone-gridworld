@@ -8,9 +8,12 @@ after every episode and once more on exit, so stopping early loses nothing.
 Stopping: the view closing (Esc, q, window close), ``on_episode`` returning
 ``False``, or a KeyboardInterrupt (the report is then marked interrupted and
 the interrupt is not re-raised). With a view, each episode ends with a short
-result flash (won / died / timed out), and the side panel carries session
-tallies: episodes, win rate, steps over oracle steps, oscillation and
-decisions/s over the session.
+result flash (won / died / timed out / stuck / skipped), and the side panel
+carries session tallies: episodes (with ``skipped N`` once any were skipped),
+win rate, steps over oracle steps, oscillation and decisions/s over the session.
+
+Story 4.9: ``stuck_after`` (``--stuck-after``) is passed to every episode and
+recorded in ``meta.stuck_after``; the view's N key skips the current episode.
 
 Prefix (story 4.8): ``prefix`` is text or a
 :class:`~gridworld.harness.prompts.PrefixSource`; the decider and the planner
@@ -50,6 +53,8 @@ FLASH = {
     "timeout": "TIMED OUT",
     "max_ticks": "TICK CAP",
     "stopped": "STOPPED",
+    "stuck": "STUCK",
+    "skipped": "SKIPPED",
 }
 
 
@@ -65,9 +70,11 @@ def _f(v: float | None, spec: str) -> str:
 def session_lines(eps: list[EpisodeSummary]) -> list[str]:
     """The panel's session tallies."""
     s = summarize_run(eps)
+    skipped = f"   skipped {s.skipped}" if s.skipped else ""
+    won = _f(s.completion, ".0%") if s.episodes > s.skipped else "-"
     return [
         "session",
-        f"episodes {s.episodes}   win {_f(s.completion, '.0%') if eps else '-'}",
+        f"episodes {s.episodes}   win {won}{skipped}",
         f"steps/oracle {_f(s.steps_over_oracle, '.2f')}",
         f"distinct/steps {_f(s.distinct_cell_ratio, '.2f')}",
         f"reversals/ep {_f(s.reversals_per_episode, '.1f')}",
@@ -99,6 +106,7 @@ def run_session(
     image_only: bool = False,
     frames: int = 3,
     frame_window: bool = False,
+    stuck_after: int = 0,
 ) -> SessionResult:
     """Play a session and write its report (see the module docstring)."""
     world = GridWorld(config)
@@ -154,6 +162,7 @@ def run_session(
             image_only=image_only,
             frames=frames if framed else None,
             frame_window=frame_window and framed,
+            stuck_after=stuck_after,
             git_rev=rev,
             power=power_state(),
             config=world.config,
@@ -200,6 +209,7 @@ def run_session(
                 label_style=label_style,
                 planner=planner.id if thinking else None,
                 image_only=image_only,
+                stuck_after=stuck_after,
             )
             eps.append(s)
             i += 1

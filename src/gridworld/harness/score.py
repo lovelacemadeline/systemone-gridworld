@@ -5,7 +5,12 @@ Definitions (all computed from the per-tick :class:`TickLog` list):
 - ``agreement``: fraction of ticks whose action equals the oracle's action on
   the same observation.
 - ``outcome``: ``won`` / ``died`` / ``timeout`` from the sim, or ``stopped`` /
-  ``max_ticks`` when the harness cut the episode short.
+  ``max_ticks`` when the harness cut the episode short, ``stuck`` (story 4.9:
+  ``--stuck-after`` consecutive immediate reversals; ``stuck: True``) or
+  ``skipped`` (the viewer's N key).
+- story 4.9: skipped episodes are counted (``skipped``) but left out of the
+  completion / died / timed out / stuck / cut short rates (whose denominator
+  is the non-skipped episodes) and of ``steps_over_oracle``.
 - ``oracle_steps``: ticks the oracle needs to win the same seed (played
   separately); ``None`` if the oracle itself fails. ``steps_over_oracle`` is
   ``steps / oracle_steps`` for won episodes when the oracle also won.
@@ -93,6 +98,8 @@ class EpisodeSummary(BaseModel):
     tokens_per_observation: float | None
     mean_top_probability: float | None
     mean_options_offered: float | None = None
+    #: Story 4.9: the episode ended on the ``--stuck-after`` rule.
+    stuck: bool = False
     #: System Two (story 5.4): plans made, their tokens and wall time, P(yes) of pause_to_plan.
     plan_count: int = 0
     plans_truncated: int = 0
@@ -177,6 +184,7 @@ def summarize_episode(
         tokens_per_observation=_mean([a + b for a, b in zip(inp, cached, strict=True)]),
         mean_top_probability=_mean(tops),
         mean_options_offered=_mean([float(len(t.offered)) for t in ticks]),
+        stuck=outcome == "stuck",
         plan_count=len(plans),
         plans_truncated=sum(p.truncated for p in plans),
         plan_completion_tokens=sum(p.completion_tokens for p in plans),
@@ -210,6 +218,10 @@ class RunSummary(BaseModel):
     died: float
     timed_out: float
     cut_short: float
+    #: Story 4.9: rate of ``stuck`` endings, and the count of skipped episodes
+    #: (excluded from every rate above and from ``steps_over_oracle``).
+    stuck: float = 0.0
+    skipped: int = 0
     agreement: float
     steps_over_oracle: float | None
     distinct_cell_ratio: float | None
@@ -260,10 +272,12 @@ def summarize_run(eps: list[EpisodeSummary]) -> RunSummary:
     """Aggregate episode summaries (see :class:`RunSummary` for the weighting)."""
     n = len(eps)
     ticks = sum(e.steps for e in eps)
-    rate = lambda outcome: (sum(e.outcome == outcome for e in eps) / n) if n else 0.0
+    played = [e for e in eps if e.outcome != "skipped"]
+    m = len(played)
+    rate = lambda *outcomes: (sum(e.outcome in outcomes for e in played) / m) if m else 0.0
     total = [ms for e in eps for ms in e.tick_total_ms]
     backend = [ms for e in eps for ms in e.tick_backend_ms]
-    ratios = [e.steps_over_oracle for e in eps if e.steps_over_oracle is not None]
+    ratios = [e.steps_over_oracle for e in played if e.steps_over_oracle is not None]
     plans = sum(e.plan_count for e in eps)
     plan_tokens = sum(e.plan_completion_tokens for e in eps)
     think_ms = sum(e.think_ms for e in eps)
@@ -275,7 +289,9 @@ def summarize_run(eps: list[EpisodeSummary]) -> RunSummary:
         completion=rate("won"),
         died=rate("died"),
         timed_out=rate("timeout"),
-        cut_short=(sum(e.outcome in ("stopped", "max_ticks") for e in eps) / n) if n else 0.0,
+        cut_short=rate("stopped", "max_ticks"),
+        stuck=rate("stuck"),
+        skipped=n - m,
         agreement=_tick_weighted(eps, "agreement") or 0.0,
         steps_over_oracle=_mean(ratios),
         distinct_cell_ratio=_mean([e.distinct_cell_ratio for e in eps if e.steps]),

@@ -9,8 +9,13 @@ episode.
 Provenance: backend id, model id when the backend exposes ``model_id``, mode,
 memory, git rev, power state (:func:`~gridworld.harness.provenance.power_state`),
 world config, prefix length and sha256 (and, story 4.8, every hot-reloaded
-prefix version), seeds, and whether the run was
+prefix version), the ``--stuck-after`` rule, seeds, and whether the run was
 interrupted.
+
+Story 4.9: the headline and the comparison table carry a ``stuck`` rate beside
+completion / died / timed out, and the headline a ``skipped`` count; skipped
+episodes stay in the per-episode table (outcome ``skipped``) but out of every
+rate and of steps / oracle steps.
 """
 
 from __future__ import annotations
@@ -61,6 +66,8 @@ class RunMeta(BaseModel):
     #: and whether the naive sliding window was used.
     frames: int | None = None
     frame_window: bool = False
+    #: Story 4.9: consecutive immediate reversals that end an episode ``stuck`` (0 = off).
+    stuck_after: int = 0
     git_rev: str | None
     power: dict[str, Any]
     config: WorldConfig
@@ -146,7 +153,9 @@ HEADLINE = [
     ("completion", "completion", True),
     ("died", "died", True),
     ("timed out", "timed_out", True),
+    ("stuck", "stuck", True),
     ("cut short", "cut_short", True),
+    ("skipped", "skipped", False),
     ("oracle agreement", "agreement", True),
     ("steps / oracle steps", "steps_over_oracle", False),
     ("distinct cells / steps", "distinct_cell_ratio", False),
@@ -171,6 +180,7 @@ HEADLINE = [
 COMPARE = [
     ("completion", "completion", True),
     ("died", "died", True),
+    ("stuck", "stuck", True),
     ("agreement", "agreement", True),
     ("distinct/steps", "distinct_cell_ratio", False),
     ("decisions/s", "decisions_per_s", False),
@@ -247,6 +257,7 @@ def to_markdown(report: RunReport) -> str:
             f"legal-only: {'on' if m.legal_only else 'off'}"
         ),
         f"- git rev: {m.git_rev or '-'}; power: {power}",
+        f"- stuck after: {m.stuck_after or 'off'}",
         "- think: " + (", ".join(f"{k} {v}" for k, v in m.think.items()) if m.think else "never"),
         (
             f"- map: {m.config.width}x{m.config.height}, {m.config.n_monsters} monsters, "

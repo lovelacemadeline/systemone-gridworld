@@ -123,6 +123,9 @@ def _play(args: argparse.Namespace) -> int:
     if args.frames < 0:
         print("gridworld play: --frames must be >= 0", file=sys.stderr)
         return 2
+    if args.stuck_after < 0:
+        print("gridworld play: --stuck-after must be >= 0", file=sys.stderr)
+        return 2
     if args.image_only and args.mode != "image":
         print("gridworld play: --image-only needs --mode image", file=sys.stderr)
         return 2
@@ -174,6 +177,7 @@ def _play(args: argparse.Namespace) -> int:
             image_only=args.image_only,
             frames=args.frames,
             frame_window=args.frame_window,
+            stuck_after=args.stuck_after,
         )
     finally:
         if view is not None:
@@ -236,6 +240,13 @@ def build_parser() -> argparse.ArgumentParser:
     play.add_argument("--episodes", type=int, default=5, help="0 = until stopped (Esc/q, Ctrl-C)")
     play.add_argument("--seed", type=int, default=0, help="first seed; episode i uses seed + i")
     play.add_argument("--max-ticks", type=int, default=None, help="cut episodes short")
+    play.add_argument(
+        "--stuck-after",
+        type=int,
+        default=0,
+        help="end an episode 'stuck' (reward -1) after N consecutive immediate reversals "
+        "(0 = off; a plan resets the count)",
+    )
     play.add_argument(
         "--legal-only", action="store_true", help="offer only actions that do something"
     )

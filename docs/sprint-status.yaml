@@ -91,6 +91,9 @@ epics:
       - id: "4.8"
         title: Edit the rules prefix live — hot reload and an edit key
         status: completed
+      - id: "4.9"
+        title: Stuck rule and a skip key
+        status: completed
   - epic: 5
     title: System Two — let the model choose to pause and plan
     status: in-progress
