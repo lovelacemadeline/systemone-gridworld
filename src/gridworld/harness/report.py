@@ -57,6 +57,10 @@ class RunMeta(BaseModel):
     memory_visits: bool = False
     #: Story 3.5: image mode without the text view.
     image_only: bool = False
+    #: Story 4.7: past frames kept by an image-mode transcript (None otherwise),
+    #: and whether the naive sliding window was used.
+    frames: int | None = None
+    frame_window: bool = False
     git_rev: str | None
     power: dict[str, Any]
     config: WorldConfig
@@ -97,6 +101,8 @@ def run_name(
     memory_k: int = 3,
     memory_visits: bool = False,
     image_only: bool = False,
+    frames: int | None = None,
+    frame_window: bool = False,
 ) -> str:
     """``<stamp>-<backend>-<mode>-<memory>``, plus ``-legal`` / ``-<labels>`` /
     ``-think-<trigger>-<style>`` when not default (``image-only`` replaces ``image``)."""
@@ -107,6 +113,8 @@ def run_name(
         extra += f"-k{memory_k}"
     if memory_visits:
         extra += "-visits"
+    if frames is not None:
+        extra += f"-fwin{frames}" if frame_window else f"-f{frames}"
     if think is not None:
         extra += f"-think-{think.trigger}-{think.style}"
     return f"{stamp or utc_stamp()}-{_slug(backend)}-{mode}-{memory}{extra}"
@@ -186,6 +194,8 @@ def run_label(meta: RunMeta) -> str:
         parts.append(f"k={meta.memory_k}")
     if meta.memory_visits:
         parts.append("visits")
+    if meta.frames is not None:
+        parts.append(f"{'window' if meta.frame_window else 'frames'} {meta.frames}")
     t = meta.think
     if t and t["trigger"] == "rule":
         rules = [f"every {t['replan_every']}"] if t.get("replan_every") else []

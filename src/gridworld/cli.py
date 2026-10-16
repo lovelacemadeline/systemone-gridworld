@@ -118,6 +118,9 @@ def _play(args: argparse.Namespace) -> int:
     if problem:
         print(f"gridworld play: {problem}", file=sys.stderr)
         return 2
+    if args.frames < 0:
+        print("gridworld play: --frames must be >= 0", file=sys.stderr)
+        return 2
     if args.image_only and args.mode != "image":
         print("gridworld play: --image-only needs --mode image", file=sys.stderr)
         return 2
@@ -167,6 +170,8 @@ def _play(args: argparse.Namespace) -> int:
             memory_k=args.memory_k,
             memory_visits=args.memory_visits,
             image_only=args.image_only,
+            frames=args.frames,
+            frame_window=args.frame_window,
         )
     finally:
         if view is not None:
@@ -209,6 +214,17 @@ def build_parser() -> argparse.ArgumentParser:
         "--image-only",
         action="store_true",
         help="image mode: send the frame without the text view (default: both)",
+    )
+    play.add_argument(
+        "--frames",
+        type=int,
+        default=3,
+        help="image transcript: past frames kept (drops to half when full; story 4.7)",
+    )
+    play.add_argument(
+        "--frame-window",
+        action="store_true",
+        help="image transcript: naive sliding window of --frames (comparison only)",
     )
     play.add_argument("--memory", choices=sorted(MEMORY_MODES), default="none")
     play.add_argument("--memory-k", type=int, default=3, help="summary: recent actions kept")

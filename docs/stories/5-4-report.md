@@ -55,6 +55,9 @@ matches the story 4.5 post-landing numbers). The last two rows are the story
 | 26B `--int8`, text (3.5 baseline) | 80.0% | 0.0% | 56.1% | 0.77 | 4.19 | 3.72 | 0.00 | - | 0.0% | 30392 | - |
 | 26B `--int8`, text + image (3.5) | 100.0% | 0.0% | 64.3% | 0.79 | 0.76 | 3.96 | 0.00 | - | 0.0% | 28988 | - |
 | 26B `--int8`, image only (3.5) | 40.0% | 20.0% | 52.8% | 0.47 | 0.73 | 4.06 | 0.00 | - | 0.0% | 63775 | - |
+| 26B `--int8`, image transcript, no history (4.7) | 80.0% | 0.0% | 56.6% | 0.57 | 0.67 | 3.13 | 0.00 | - | 0.0% | 56038 | - |
+| 26B `--int8`, image transcript, `--frames 3` (4.7) | 80.0% | 0.0% | 58.8% | 0.77 | 0.56 | 2.97 | 0.00 | - | 0.0% | 74870 | - |
+| 26B `--int8`, image, sliding `--frame-window 3` (4.7) | 80.0% | 0.0% | 58.7% | 0.74 | 0.37 | 3.00 | 0.00 | - | 0.0% | 89284 | - |
 
 The last three rows were added later, same flags and seeds. The 26B-alone and
 start-only split rows are the coordinator's runs:
@@ -75,6 +78,13 @@ Text + image is the first run to win seed 4 (in 99 steps). The text 26B ruts
 there to the tick limit. Image decisions cost 1.29 s p50, against 0.24 s for
 text with the int8 kernels and delta caching; about 0.7 s of that is the
 vision encoder (story 3.5).
+
+The three story 4.7 rows are `--mode image --memory transcript` with
+`--frames 0`, `--frames 3` and `--frames 3 --frame-window`, under the same
+conditions: `runs/story-4-7/20261016T202519Z-…-f0`, `…20261016T201733Z-…-f3`
+and `…20261016T203315Z-…-fwin3`. Reversals per episode: 48.8 (no history),
+36.8 (`--frames 3`), 36.8 (window). The window plays like the transcript but
+at two thirds of its decisions/s.
 
 What the rows say:
 

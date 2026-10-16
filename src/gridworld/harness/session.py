@@ -97,6 +97,8 @@ def run_session(
     memory_k: int = 3,
     memory_visits: bool = False,
     image_only: bool = False,
+    frames: int = 3,
+    frame_window: bool = False,
 ) -> SessionResult:
     """Play a session and write its report (see the module docstring)."""
     world = GridWorld(config)
@@ -109,6 +111,7 @@ def run_session(
     # option; the planner keeps the plain rules.
     wrap = with_plan_option if thinking and think.trigger == "action" else None
     first_sent = wrap(source.current()) if wrap else source.current()
+    framed = mode == "image" and memory == "transcript"
     name = run_name(
         backend.id,
         mode,
@@ -119,6 +122,8 @@ def run_session(
         memory_k=memory_k,
         memory_visits=memory_visits,
         image_only=image_only,
+        frames=frames if framed else None,
+        frame_window=frame_window and framed,
     )
     label_style = {"letters": None, "words": "option-text"}[labels]
     out = Path(out_dir)
@@ -147,6 +152,8 @@ def run_session(
             memory_k=memory_k,
             memory_visits=memory_visits,
             image_only=image_only,
+            frames=frames if framed else None,
+            frame_window=frame_window and framed,
             git_rev=rev,
             power=power_state(),
             config=world.config,
@@ -176,7 +183,14 @@ def run_session(
                 mode=mode,
                 prefix=source,
                 prefix_wrap=wrap,
-                memory=make_memory(memory, k=memory_k, visits=memory_visits),
+                memory=make_memory(
+                    memory,
+                    k=memory_k,
+                    visits=memory_visits,
+                    mode=mode,
+                    frames=frames,
+                    frame_window=frame_window,
+                ),
                 record_path=episode_dir / f"seed-{seed + i:04d}.jsonl",
                 view=view,
                 hooks=episode_hooks,

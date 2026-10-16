@@ -63,7 +63,7 @@ epics:
         status: completed
   - epic: 4
     title: Harness, scoring and reports
-    status: in-progress
+    status: completed
     story_home: docs/stories/
     stories_count: 7
     stories:
@@ -87,7 +87,7 @@ epics:
         status: completed
       - id: "4.7"
         title: Frame history as a transcript — past frames stay cached
-        status: pending
+        status: completed
       - id: "4.8"
         title: Edit the rules prefix live — hot reload and an edit key
         status: completed
