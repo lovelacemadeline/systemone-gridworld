@@ -87,7 +87,7 @@ epics:
         status: completed
       - id: "5.2"
         title: Triggers — never, at start, on demand via a second noul question
-        status: pending
+        status: completed
       - id: "5.3"
         title: Viewer plan panel and planning-tick markers
         status: pending

@@ -60,7 +60,14 @@ def _backend(args: argparse.Namespace):
 
 
 def _think_kwargs(args: argparse.Namespace) -> dict:
-    return {"trigger": args.think, "style": args.plan, "max_tokens": args.plan_max_tokens}
+    return {
+        "trigger": args.think,
+        "style": args.plan,
+        "max_tokens": args.plan_max_tokens,
+        "threshold": args.think_threshold,
+        "cooldown": args.think_cooldown,
+        "cost": args.think_cost,
+    }
 
 
 def _planner(args: argparse.Namespace, backend):
@@ -166,7 +173,19 @@ def build_parser() -> argparse.ArgumentParser:
     play.add_argument("--scale", type=int, default=3)
     play.add_argument("--flash", type=float, default=1.0, help="seconds to show each result")
     two = play.add_argument_group("System Two (Epic 5)")
-    two.add_argument("--think", choices=["never", "start"], default="never")
+    two.add_argument("--think", choices=["never", "start", "demand"], default="never")
+    two.add_argument(
+        "--think-threshold", type=float, default=0.7, help="demand: P(yes) that triggers a plan"
+    )
+    two.add_argument(
+        "--think-cooldown", type=int, default=5, help="demand: min ticks between plans"
+    )
+    two.add_argument(
+        "--think-cost",
+        choices=["free", "tick"],
+        default="free",
+        help="free: plan before acting; tick: planning spends the turn as wait",
+    )
     two.add_argument("--plan", choices=["direct", "trace"], default="direct")
     two.add_argument("--plan-max-tokens", type=int, default=4096)
     world = play.add_argument_group("world (defaults: WorldConfig)")

@@ -25,7 +25,7 @@ show agreement and completion against decisions per second and total tokens.
 | id | title | status |
 |---|---|---|
 | 5.1 | Plan call over the chat route and plan injection into the memory tail | completed |
-| 5.2 | Triggers — never, at start, on demand via a second noul question | pending |
+| 5.2 | Triggers — never, at start, on demand via a second noul question | completed |
 | 5.3 | Viewer plan panel and planning-tick markers | pending |
 | 5.4 | Report — quality versus cost across triggers | pending |
 
