@@ -1,6 +1,6 @@
 ---
 type: epic
-status: in-progress
+status: completed
 title: Backends behind the wire schema
 epic: 3
 owner: maddie
@@ -18,6 +18,6 @@ One adapter protocol: request dict in, response dict out, validated both ways ag
 | 3.2 | Fake backend — oracle with controllable noise | completed |
 | 3.3 | In-process backend over mlx-classifiers decide() | completed |
 | 3.4 | HTTP backend for /v1/systemone servers | completed |
-| 3.5 | Image mode through the local backend | pending |
+| 3.5 | Image mode through the local backend | completed |
 ## Related
 - ADR-0002, [golden repo schema](https://github.com/lovelacemadeline/mlx-lm-as-classifiers/tree/main/schema)

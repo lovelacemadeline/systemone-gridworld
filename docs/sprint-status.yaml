@@ -42,7 +42,7 @@ epics:
         status: completed
   - epic: 3
     title: Backends behind the wire schema
-    status: in-progress
+    status: completed
     story_home: docs/stories/
     stories_count: 5
     stories:
@@ -60,7 +60,7 @@ epics:
         status: completed
       - id: "3.5"
         title: Image mode through the local backend
-        status: pending
+        status: completed
   - epic: 4
     title: Harness, scoring and reports
     status: in-progress

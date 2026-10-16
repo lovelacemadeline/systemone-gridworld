@@ -55,6 +55,8 @@ class RunMeta(BaseModel):
     #: Summary-memory knobs (story 4.6).
     memory_k: int = 3
     memory_visits: bool = False
+    #: Story 3.5: image mode without the text view.
+    image_only: bool = False
     git_rev: str | None
     power: dict[str, Any]
     config: WorldConfig
@@ -94,9 +96,12 @@ def run_name(
     think: Any = None,
     memory_k: int = 3,
     memory_visits: bool = False,
+    image_only: bool = False,
 ) -> str:
     """``<stamp>-<backend>-<mode>-<memory>``, plus ``-legal`` / ``-<labels>`` /
-    ``-think-<trigger>-<style>`` when not default."""
+    ``-think-<trigger>-<style>`` when not default (``image-only`` replaces ``image``)."""
+    if image_only:
+        mode = f"{mode}-only"
     extra = ("-legal" if legal_only else "") + ("" if labels == "letters" else f"-{labels}")
     if memory_k != 3:
         extra += f"-k{memory_k}"
@@ -172,8 +177,11 @@ COMPARE = [
 
 
 def run_label(meta: RunMeta) -> str:
-    """A short row label: labels, legal-only, memory knobs, think settings."""
+    """A short row label: labels, legal-only, memory knobs, think settings
+    (prefixed with the mode when it is not text, story 3.5)."""
     parts = [meta.labels, "legal" if meta.legal_only else "all-actions", meta.memory]
+    if meta.mode != "text":
+        parts.insert(0, f"{meta.mode}-only" if meta.image_only else f"text+{meta.mode}")
     if meta.memory_k != 3:
         parts.append(f"k={meta.memory_k}")
     if meta.memory_visits:

@@ -7,7 +7,7 @@ updated: 2026-10-16
 anchor:
   - symbol: "src/gridworld/sim.py::legal_actions"
   - symbol: "src/gridworld/backends/request.py::build_request"
-  - symbol: "src/gridworld/backends/schema.py::extended_request_schema"
+  - symbol: "src/gridworld/backends/schema.py::validate_request"
   - symbol: "src/gridworld/harness/score.py::RunSummary"
   - test: "tests/test_legal.py::test_legal_actions_match_step_on_200_seeds"
   - test: "tests/test_legal.py::test_legal_only_request_offers_the_legal_set_on_the_vendored_schema"

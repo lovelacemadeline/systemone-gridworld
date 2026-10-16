@@ -52,6 +52,9 @@ matches the story 4.5 post-landing numbers). The last two rows are the story
 | 26B decider alone (think never) | 80.0% | 0.0% | 56.1% | 0.77 | 0.84 | 3.97 | 0.00 | - | 0.0% | 30568 | - |
 | E2B decides, 26B plans at start (5.5) | 0.0% | 60.0% | 49.0% | 0.52 | 4.39 | 3.13 | 1.00 | 78 | 30.6% | 59027 | - |
 | E2B decides, 26B replans every 8 + on damage (5.6) | 20.0% | 40.0% | 33.9% | 0.46 | 1.10 | 3.41 | 12.20 | 82 | 82.5% | 69613 | - |
+| 26B `--int8`, text (3.5 baseline) | 80.0% | 0.0% | 56.1% | 0.77 | 4.19 | 3.72 | 0.00 | - | 0.0% | 30392 | - |
+| 26B `--int8`, text + image (3.5) | 100.0% | 0.0% | 64.3% | 0.79 | 0.76 | 3.96 | 0.00 | - | 0.0% | 28988 | - |
+| 26B `--int8`, image only (3.5) | 40.0% | 20.0% | 52.8% | 0.47 | 0.73 | 4.06 | 0.00 | - | 0.0% | 63775 | - |
 
 The last three rows were added later, same flags and seeds. The 26B-alone and
 start-only split rows are the coordinator's runs:
@@ -61,6 +64,17 @@ and `runs/20261016T163023Z-local-mlx-community-gemma-4-e2b-it-qat-4bit-text-summ
 (`--plan-model` 26B; died on seeds 0, 2 and 3, timed out on 1 and 4, 78 reversals
 per episode). The rule-replan row is story 5.6's run
 (`runs/story-5-6/20261016T163641Z-...-think-rule-direct`).
+
+The three story 3.5 rows (added later, same flags and seeds plus `--int8` and
+the mode) are `--model` 26B in-process, golden 316f7c5, low power mode **off**,
+AC power: `runs/story-3-5/20261016T195935Z-…-int8-text-summary-legal-words`,
+`runs/story-3-5/20261016T200046Z-…-int8-image-summary-legal-words` and
+`runs/story-3-5/20261016T200419Z-…-int8-image-only-summary-legal-words`.
+Reversals per episode: 37.4 (text), 12.6 (text + image), 71.6 (image only).
+Text + image is the first run to win seed 4 (in 99 steps). The text 26B ruts
+there to the tick limit. Image decisions cost 1.29 s p50, against 0.24 s for
+text with the int8 kernels and delta caching; about 0.7 s of that is the
+vision encoder (story 3.5).
 
 What the rows say:
 

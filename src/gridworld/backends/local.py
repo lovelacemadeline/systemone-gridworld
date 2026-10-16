@@ -16,8 +16,15 @@ prefix reuse its cache — visible as ``usage.cached_tokens``.
 default the library's default calibration file is used (as ``mlx-classifiers
 serve`` does), so in-process and HTTP numbers are comparable.
 
-**Image mode** is not supported: the golden library has no vision port yet, so
-a request with an image block raises :class:`NotImplementedError`.
+**Image mode** (story 3.5): image blocks go to ``decide`` unchanged; the
+golden library (Epic 6, 0e0fe18 on) compiles each into the model's soft-token
+run and encodes it with the vision tower, loaded on the first image and
+memoised per PNG sha256. The runner's own delta cache (``prompt_cache``) keys
+on image hashes, so a frame transcript reuses the KV of every earlier frame.
+The vendored response has no encoder field, so the tower time the runner logs
+for this decision (``vision_encode_ms``) is added to the response as
+``timing_ms.encoder`` (``timing_ms`` is open in v1); 0 when every image was
+memoised, absent for text-only requests.
 """
 
 from __future__ import annotations
@@ -58,7 +65,9 @@ class _PrefixMemo:
     def __getattr__(self, name: str) -> Any:
         return getattr(self.runner, name)
 
-    def cache_prefix(self, tokens: Sequence[int]) -> Any:
+    def cache_prefix(self, tokens: Sequence[int], **kw: Any) -> Any:
+        if kw.get("images"):  # keyed by token ids alone, so never memoise an image prefix
+            return self.runner.cache_prefix(tokens, **kw)
         key = tuple(tokens)
         if key in self._entries:
             self.hits += 1
@@ -103,11 +112,6 @@ class LocalBackend:
         return "label_style" in RequestOptions.model_fields
 
     def decide(self, request: dict[str, Any]) -> dict[str, Any]:
-        if has_image_blocks(request):
-            raise NotImplementedError(
-                "local backend: image mode is not supported yet (mlx-classifiers has no "
-                "vision port); use mode 'text'"
-            )
         style = (request.get("options") or {}).get("label_style")
         if style is not None and not self._label_style_supported():
             raise NotImplementedError(
@@ -116,4 +120,9 @@ class LocalBackend:
             )
         req = self._request_cls.model_validate(request)
         temperature = self.calibration.temperature(self.model_id, req.effective_options.readout)
-        return self._decide(req, self.runner, temperature=temperature).to_wire()
+        encodes = getattr(self.runner.runner, "vision_encode_ms", None)
+        before = len(encodes) if encodes is not None else 0
+        wire = self._decide(req, self.runner, temperature=temperature).to_wire()
+        if has_image_blocks(request) and encodes is not None:
+            wire.setdefault("timing_ms", {})["encoder"] = sum(encodes[before:])
+        return wire

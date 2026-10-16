@@ -9,7 +9,9 @@ One tick of :func:`run_episode`:
    backend, validates the answer;
 4. **step**: the chosen action is stepped (or a hook's override);
 5. the tick is recorded (observation, action, probabilities, oracle action,
-   usage, timing ``{render_ms, backend_ms, think_ms, step_ms, total_ms}``, and
+   usage, timing ``{render_ms, backend_ms, think_ms, step_ms, total_ms}`` plus
+   ``encoder_ms`` when the backend reports ``timing_ms.encoder`` (story 3.5),
+   the image-mode ``frame_sha256``, and
    System Two's ``plan`` / ``pause_p`` / ``plan_p`` / ``route_remaining`` /
    ``plan_dropped`` when present), the memory is told what
    happened, and the live view (if any) is updated.
@@ -113,6 +115,7 @@ def run_episode(
     legal_only: bool = False,
     label_style: str | None = None,
     planner: str | None = None,
+    image_only: bool = False,
 ) -> EpisodeSummary:
     """Play one episode of ``seed`` with ``backend``; record it and return its summary."""
     memory = memory or NoMemory()
@@ -175,11 +178,15 @@ def run_episode(
                     label_style=label_style,
                     extra_questions=questions,
                     plan_option=plan_option,
+                    image_only=image_only,
                 )
                 tc = time.perf_counter()
                 spent["render_ms"] += _ms(ta, tc)
                 decision = call(backend, built.request)
                 spent["backend_ms"] += _ms(tc, time.perf_counter())
+                encoder = (decision.timing_ms or {}).get("encoder")
+                if encoder is not None:
+                    spent["encoder_ms"] = spent.get("encoder_ms", 0.0) + encoder
                 return built, decision
 
             built, decision = ask(True)
@@ -233,6 +240,7 @@ def run_episode(
                     route_remaining=extras.get("route_remaining"),
                     plan_dropped=extras.get("plan_dropped"),
                     prefix_reloaded=reloaded,
+                    frame_sha256=built.frame_sha256,
                 )
             memory.observe(obs, built.text, action, result.observation)
             if hooks.after_tick:

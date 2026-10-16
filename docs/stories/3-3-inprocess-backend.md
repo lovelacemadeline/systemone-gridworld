@@ -9,7 +9,6 @@ anchor:
   - symbol: "src/gridworld/backends/local.py::LocalBackend.decide"
   - test: "tests/test_local_backend.py::test_one_tick_validates_with_zero_output_tokens"
   - test: "tests/test_local_backend.py::test_prefix_cache_is_reused_across_ticks"
-  - test: "tests/test_local_backend.py::test_image_mode_is_not_implemented"
   - test: "tests/test_local_backend.py::test_real_model_one_tick"
 ---
 
@@ -33,8 +32,8 @@ Optional extra: wraps `mlx_classifiers.decide` with an `MLXRunner`, passing the 
   the first reuses the cached prefix, which `usage.cached_tokens` shows.
 - **Calibration** defaults to the library's default calibration file, as
   `mlx-classifiers serve` does, so in-process and HTTP results are comparable.
-- **Image mode** raises `NotImplementedError`: the golden library has no vision
-  port yet.
+- **Image mode** raised `NotImplementedError` while the golden library had no
+  vision port; story 3.5 removed that once it did (golden Epic 6).
 - Tests run the wiring against the golden `FakeRunner` (no weights), and one
   `mlx`-marked test runs the real E2B model when it is in the HF cache.
   Measured on 2026-10-16 (M-series, low power mode): load about 2 s; three ticks
@@ -44,4 +43,4 @@ Optional extra: wraps `mlx_classifiers.decide` with an `MLXRunner`, passing the 
 ## Acceptance Criteria
 - **Given** the golden library installed **when** one tick runs **then** the response validates and `output_tokens` is 0.
 - **Given** several ticks sharing a prefix **when** run **then** the prefix is cached once and reused.
-- **Given** an image-mode request **when** decided **then** `NotImplementedError` explains why.
+- **Given** an image-mode request **when** decided **then** `NotImplementedError` explains why. *(Retired by story 3.5: image requests are now decided.)*

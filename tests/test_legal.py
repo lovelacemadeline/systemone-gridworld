@@ -130,13 +130,7 @@ def test_local_backend_refuses_label_style_until_upstream_supports_it():
 
 
 def test_vendored_schema_defines_label_style():
-    """Story 4.5's former target anchor: the re-vendored schema owns label_style,
-    so the local extension carries image blocks only."""
+    """Story 4.5's former target anchor: the re-vendored schema owns label_style
+    (and, since story 3.5, image blocks), so nothing is extended locally."""
     assert "label_style" in load_schema("request")["$defs"]["RequestOptions"]["properties"]
-    from gridworld.backends.schema import extended_request_schema, uses_local_extensions
-
-    ext = extended_request_schema()["$defs"]["RequestOptions"]
-    assert ext == load_schema("request")["$defs"]["RequestOptions"]
-    assert not uses_local_extensions(
-        build_request(generate_map(3), label_style="option-text").request
-    )
+    validate_request(build_request(generate_map(3), label_style="option-text").request)

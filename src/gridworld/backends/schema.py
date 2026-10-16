@@ -1,12 +1,10 @@
 """The vendored v1 wire schema (story 3.1, ADR-0002) and validation against it.
 
 The two JSON Schemas under ``schema/`` are vendored byte-for-byte from the
-golden repo (provenance in ``schema/VENDORED.txt``) and never edited. One local
-extension exists, documented in ``schema/local-extensions.md``: an array
-``state`` may also hold image blocks ``{"type": "image/png", "base64": ...}``.
-It is applied to an in-memory copy of the request schema
-(:func:`extended_request_schema`) and used only for requests that need it, so
-any other request is checked against the unmodified upstream schema.
+golden repo (provenance in ``schema/VENDORED.txt``) and never edited. Nothing
+is extended locally: image blocks ``{"type": "image/png", "base64": ...}`` in
+an array ``state`` are upstream since golden 0e0fe18 (story 3.5 retired the
+in-memory extension this module used to apply).
 
 Every failure raises :class:`SchemaError`, whose message lists each violation
 as ``<JSON path>: <message>`` (for an unknown field the path is its parent and
@@ -15,7 +13,6 @@ the message names the field).
 
 from __future__ import annotations
 
-import copy
 import json
 from functools import cache
 from pathlib import Path
@@ -26,25 +23,13 @@ from jsonschema import Draft202012Validator
 __all__ = [
     "IMAGE_BLOCK_TYPE",
     "SchemaError",
-    "extended_request_schema",
     "has_image_blocks",
     "load_schema",
-    "uses_local_extensions",
     "validate_request",
     "validate_response",
 ]
 
 IMAGE_BLOCK_TYPE = "image/png"
-
-_IMAGE_BLOCK = {
-    "type": "object",
-    "required": ["type", "base64"],
-    "additionalProperties": False,
-    "properties": {
-        "type": {"const": IMAGE_BLOCK_TYPE},
-        "base64": {"type": "string", "contentEncoding": "base64"},
-    },
-}
 
 
 class SchemaError(ValueError):
@@ -72,19 +57,8 @@ def load_schema(name: str) -> dict[str, Any]:
 
 
 @cache
-def extended_request_schema() -> dict[str, Any]:
-    """The request schema plus the image-block extension (schema/local-extensions.md)."""
-    schema = copy.deepcopy(load_schema("request"))
-    for branch in schema["properties"]["state"]["oneOf"]:
-        if branch.get("type") == "array":
-            branch["items"] = {"anyOf": [{"type": "string"}, _IMAGE_BLOCK]}
-    schema["$id"] = schema["$id"].replace("request.json", "request.x-local.json")
-    return schema
-
-
-@cache
-def _validator(name: str, extended: bool) -> Draft202012Validator:
-    schema = extended_request_schema() if extended else load_schema(name)
+def _validator(name: str) -> Draft202012Validator:
+    schema = load_schema(name)
     Draft202012Validator.check_schema(schema)
     return Draft202012Validator(schema)
 
@@ -95,11 +69,6 @@ def has_image_blocks(request: dict[str, Any]) -> bool:
     return isinstance(state, list) and any(not isinstance(s, str) for s in state)
 
 
-def uses_local_extensions(request: dict[str, Any]) -> bool:
-    """True when the request needs the extended schema (it holds image blocks)."""
-    return has_image_blocks(request)
-
-
 def _check(which: str, validator: Draft202012Validator, doc: Any) -> None:
     errors = sorted(validator.iter_errors(doc), key=lambda e: (e.json_path, e.message))
     if errors:
@@ -107,14 +76,10 @@ def _check(which: str, validator: Draft202012Validator, doc: Any) -> None:
 
 
 def validate_request(request: dict[str, Any]) -> None:
-    """Raise :class:`SchemaError` unless ``request`` is a valid v1 request.
-
-    Requests using a local extension are checked against the locally extended
-    schema; all others against the vendored one.
-    """
-    _check("request", _validator("request", uses_local_extensions(request)), request)
+    """Raise :class:`SchemaError` unless ``request`` is a valid v1 request."""
+    _check("request", _validator("request"), request)
 
 
 def validate_response(response: dict[str, Any]) -> None:
     """Raise :class:`SchemaError` unless ``response`` is a valid v1 response."""
-    _check("response", _validator("response", False), response)
+    _check("response", _validator("response"), response)

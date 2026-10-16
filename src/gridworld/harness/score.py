@@ -109,6 +109,8 @@ class EpisodeSummary(BaseModel):
     #: Raw per-tick latencies, kept so run-level percentiles are over ticks, not episodes.
     tick_total_ms: list[float] = []
     tick_backend_ms: list[float] = []
+    #: Story 3.5: vision-tower ms per tick, for ticks whose backend reported it.
+    tick_encoder_ms: list[float] = []
 
 
 def percentile(values: list[float], q: float) -> float | None:
@@ -187,6 +189,7 @@ def summarize_episode(
         record_path=record_path,
         tick_total_ms=total,
         tick_backend_ms=backend,
+        tick_encoder_ms=[t.timing["encoder_ms"] for t in ticks if "encoder_ms" in t.timing],
     )
 
 
@@ -220,6 +223,8 @@ class RunSummary(BaseModel):
     mean_cached_tokens: float | None
     mean_top_probability: float | None
     mean_options_offered: float | None = None
+    #: Story 3.5: median vision-tower ms per tick (None when no tick reported one).
+    p50_encoder_ms: float | None = None
     plans: int = 0
     plans_per_episode: float | None = None
     plans_truncated: int = 0
@@ -284,6 +289,7 @@ def summarize_run(eps: list[EpisodeSummary]) -> RunSummary:
         mean_cached_tokens=_tick_weighted(eps, "mean_cached_tokens"),
         mean_top_probability=_tick_weighted(eps, "mean_top_probability"),
         mean_options_offered=_tick_weighted(eps, "mean_options_offered"),
+        p50_encoder_ms=percentile([ms for e in eps for ms in e.tick_encoder_ms], 50),
         plans=plans,
         plans_per_episode=(plans / n) if n else None,
         plans_truncated=sum(e.plans_truncated for e in eps),

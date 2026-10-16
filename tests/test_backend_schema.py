@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import io
 
 import pytest
@@ -10,9 +11,8 @@ from PIL import Image
 
 from gridworld.backends import BackendError, SchemaError, build_request, call
 from gridworld.backends.base import Backend
-from gridworld.backends.request import ACTION_CRITERIA, DEFAULT_PREFIX, build_state
+from gridworld.backends.request import ACTION_CRITERIA, DEFAULT_PREFIX, IMAGE_KEY, build_state
 from gridworld.backends.schema import (
-    extended_request_schema,
     load_schema,
     validate_request,
     validate_response,
@@ -57,8 +57,8 @@ class Stub:
 def test_vendored_schemas_load_unmodified():
     assert load_schema("request")["title"] == "SystemOneRequest"
     assert load_schema("response")["title"] == "SystemOneResponse"
-    assert extended_request_schema() != load_schema("request")
-    assert load_schema("request")["properties"]["state"]["oneOf"][2]["items"] == {"type": "string"}
+    items = load_schema("request")["properties"]["state"]["oneOf"][2]["items"]
+    assert items == {"anyOf": [{"type": "string"}, {"$ref": "#/$defs/ImageBlock"}]}
 
 
 def test_text_request_shape_validates_against_the_vendored_schema():
@@ -73,18 +73,34 @@ def test_text_request_shape_validates_against_the_vendored_schema():
 
 def test_image_request_carries_text_and_png_block():
     built = build_request(OBS, mode="image")
-    text, block = built.request["state"]
-    assert text == built.text and block["type"] == "image/png"
-    png = Image.open(io.BytesIO(base64.b64decode(block["base64"])))
+    key, block, text = built.request["state"]
+    assert key == IMAGE_KEY and text == built.text and block["type"] == "image/png"
+    raw = base64.b64decode(block["base64"])
+    png = Image.open(io.BytesIO(raw))
     assert png.convert("RGB").tobytes() == to_image(OBS).tobytes()
-    validate_request(built.request)  # passes only via the local extension
+    assert built.frame_sha256 == hashlib.sha256(raw).hexdigest()
+    validate_request(built.request)  # the vendored v1 schema, no local extension
 
 
-def test_image_block_fails_the_vendored_schema_alone():
-    from jsonschema import Draft202012Validator
+def test_image_only_drops_the_text_view_but_keeps_the_memory_tail():
+    built = build_request(OBS, mode="image", image_only=True)
+    key, block = built.request["state"]
+    assert key == IMAGE_KEY and block["type"] == "image/png"
+    tailed = build_request(OBS, mode="image", image_only=True, memory_tail="recent: none")
+    assert tailed.request["state"][1:] == [block, "recent: none"]
+    validate_request(tailed.request)
+    with pytest.raises(ValueError, match="image_only"):
+        build_request(OBS, image_only=True)
 
-    built = build_request(OBS, mode="image")
-    assert not Draft202012Validator(load_schema("request")).is_valid(built.request)
+
+def test_malformed_image_blocks_fail_the_vendored_schema():
+    req = build_request(OBS, mode="image").request
+    req["state"][1] = {"type": "image/jpeg", "base64": "AA=="}
+    with pytest.raises(SchemaError, match="state"):
+        validate_request(req)
+    req["state"][1] = {"type": "image/png", "base64": "AA==", "extra": 1}
+    with pytest.raises(SchemaError):
+        validate_request(req)
 
 
 def test_memory_tail_extends_the_status_line():

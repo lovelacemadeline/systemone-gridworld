@@ -104,6 +104,8 @@ class TickRecord(BaseModel):
     plan_dropped: str | None = None
     #: Story 4.8: the prefix version that took effect on this tick (a hot reload).
     prefix_reloaded: int | None = None
+    #: Story 3.5: sha256 (hex) of the PNG frame the decision saw (image mode).
+    frame_sha256: str | None = None
 
 
 class EpisodeEnd(BaseModel):
@@ -178,6 +180,7 @@ class EpisodeRecorder:
         route_remaining: list[str] | None = None,
         plan_dropped: str | None = None,
         prefix_reloaded: int | None = None,
+        frame_sha256: str | None = None,
     ) -> None:
         """Record the decision taken from ``observation``."""
         self._write(
@@ -195,6 +198,7 @@ class EpisodeRecorder:
                 route_remaining=route_remaining,
                 plan_dropped=plan_dropped,
                 prefix_reloaded=prefix_reloaded,
+                frame_sha256=frame_sha256,
             )
         )
 

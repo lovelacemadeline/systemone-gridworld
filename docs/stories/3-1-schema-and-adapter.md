@@ -7,7 +7,7 @@ updated: 2026-10-16
 anchor:
   - symbol: "src/gridworld/backends/schema.py::validate_request"
   - symbol: "src/gridworld/backends/schema.py::validate_response"
-  - symbol: "src/gridworld/backends/schema.py::extended_request_schema"
+  - symbol: "src/gridworld/backends/schema.py::load_schema"
   - symbol: "src/gridworld/backends/request.py::build_request"
   - symbol: "src/gridworld/backends/base.py::Backend"
   - symbol: "src/gridworld/backends/adapter.py::call"
@@ -36,6 +36,8 @@ Vendor `schema/systemone-{request,response}.schema.json` from the golden repo wi
   items to an in-memory copy, documented in `schema/local-extensions.md`, and
   is used only for requests whose `state` array holds a non-string. Upstream
   should define image state; then re-vendor and drop the extension.
+  *(Done in story 3.5: golden 0e0fe18 defines the block field for field, the
+  schema was re-vendored at 316f7c5, and the extension and its doc are gone.)*
 - **Request.** `build_request(obs, mode="text"|"image", prefix=..., memory_tail=None)`
   returns a `BuiltRequest(request, text, mode)`: `prefix` is the caller's
   stable rules text (default `DEFAULT_PREFIX`), `state` is `to_text(obs)` (plus

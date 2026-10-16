@@ -118,6 +118,9 @@ def _play(args: argparse.Namespace) -> int:
     if problem:
         print(f"gridworld play: {problem}", file=sys.stderr)
         return 2
+    if args.image_only and args.mode != "image":
+        print("gridworld play: --image-only needs --mode image", file=sys.stderr)
+        return 2
     view = None
     if args.view:
         from .view import LiveView, ViewUnavailable
@@ -163,6 +166,7 @@ def _play(args: argparse.Namespace) -> int:
             planner=planner,
             memory_k=args.memory_k,
             memory_visits=args.memory_visits,
+            image_only=args.image_only,
         )
     finally:
         if view is not None:
@@ -201,6 +205,11 @@ def build_parser() -> argparse.ArgumentParser:
     play = sub.add_parser("play", help="run a backend for N episodes and write a report")
     play.add_argument("--backend", choices=["fake", "local", "http"], default="fake")
     play.add_argument("--mode", choices=["text", "image"], default="text")
+    play.add_argument(
+        "--image-only",
+        action="store_true",
+        help="image mode: send the frame without the text view (default: both)",
+    )
     play.add_argument("--memory", choices=sorted(MEMORY_MODES), default="none")
     play.add_argument("--memory-k", type=int, default=3, help="summary: recent actions kept")
     play.add_argument(

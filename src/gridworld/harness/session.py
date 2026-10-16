@@ -96,6 +96,7 @@ def run_session(
     planner: Planner | None = None,
     memory_k: int = 3,
     memory_visits: bool = False,
+    image_only: bool = False,
 ) -> SessionResult:
     """Play a session and write its report (see the module docstring)."""
     world = GridWorld(config)
@@ -117,6 +118,7 @@ def run_session(
         think=think if thinking else None,
         memory_k=memory_k,
         memory_visits=memory_visits,
+        image_only=image_only,
     )
     label_style = {"letters": None, "words": "option-text"}[labels]
     out = Path(out_dir)
@@ -144,6 +146,7 @@ def run_session(
             planner_model=getattr(planner, "model_id", None) if thinking else None,
             memory_k=memory_k,
             memory_visits=memory_visits,
+            image_only=image_only,
             git_rev=rev,
             power=power_state(),
             config=world.config,
@@ -182,6 +185,7 @@ def run_session(
                 legal_only=legal_only,
                 label_style=label_style,
                 planner=planner.id if thinking else None,
+                image_only=image_only,
             )
             eps.append(s)
             i += 1
