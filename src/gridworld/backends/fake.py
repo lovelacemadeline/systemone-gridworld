@@ -9,12 +9,17 @@ Probabilities look like a model's: the chosen action gets a seeded draw in
 [0.6, 0.95]; the other five share the remainder equally. ``usage`` estimates
 ``input_tokens`` as ``len(prefix + state text) // 4``, ``output_tokens`` 0.
 ``timing_ms.total`` reports exactly ``latency_s`` (the call sleeps that long),
-so timing tests are deterministic. All randomness comes from one
+so timing tests are deterministic. With ``prefix_cache=True`` it simulates a
+delta prefix cache (what story 4.4's transcript mode needs from a real
+server): ``cached_tokens`` is the common character prefix with the previous
+request's ``prefix`` plus joined text, // 4, and ``input_tokens`` the rest,
+matching the golden library's split of computed versus cached tokens. All randomness comes from one
 ``random.Random(seed)`` advanced per call: same seed and requests, same answers.
 """
 
 from __future__ import annotations
 
+import os
 import random
 import time
 from typing import Any
@@ -38,10 +43,13 @@ def _state_text(state: Any) -> str:
 class FakeBackend:
     """Oracle-plus-noise backend; ``noise=0`` agrees with the oracle on every tick."""
 
-    def __init__(self, noise: float = 0.0, latency_s: float = 0.0, seed: int = 0) -> None:
+    def __init__(
+        self, noise: float = 0.0, latency_s: float = 0.0, seed: int = 0, prefix_cache: bool = False
+    ) -> None:
         if not 0.0 <= noise <= 1.0:
             raise ValueError("noise must be in [0, 1]")
-        self.noise, self.latency_s = noise, latency_s
+        self.noise, self.latency_s, self.prefix_cache = noise, latency_s, prefix_cache
+        self._previous = ""
         self.rng = random.Random(seed)
         self.id = f"fake(noise={noise:g})"
 
@@ -67,10 +75,21 @@ class FakeBackend:
             }
         if self.latency_s > 0:
             time.sleep(self.latency_s)
-        n_chars = len(request.get("prefix", "")) + len(text)
+        state = request["state"]
+        texts = [s for s in state if isinstance(s, str)] if isinstance(state, list) else [text]
+        full = request.get("prefix", "") + "\n".join(texts)
+        usage = {"input_tokens": len(full) // 4, "output_tokens": 0}
+        if self.prefix_cache:
+            common = len(os.path.commonprefix([self._previous, full]))
+            self._previous = full
+            usage = {
+                "input_tokens": (len(full) - common) // 4,
+                "output_tokens": 0,
+                "cached_tokens": common // 4,
+            }
         return {
             "model": self.id,
             "answers": answers,
-            "usage": {"input_tokens": n_chars // 4, "output_tokens": 0},
+            "usage": usage,
             "timing_ms": {"total": self.latency_s * 1000},
         }

@@ -57,7 +57,7 @@ epics:
         status: completed
   - epic: 4
     title: Harness, scoring and reports
-    status: in-progress
+    status: completed
     story_home: docs/stories/
     stories_count: 4
     stories:
@@ -72,7 +72,7 @@ epics:
         status: completed
       - id: "4.4"
         title: Memory modes — none, summary, transcript
-        status: pending
+        status: completed
   - epic: 5
     title: System Two — let the model choose to pause and plan
     status: pending
