@@ -29,7 +29,15 @@ from pydantic import BaseModel, ConfigDict
 
 from ..sim import Action, Cell, Observation
 
-__all__ = ["EpisodeSummary", "TickLog", "oscillation", "percentile", "summarize_episode"]
+__all__ = [
+    "EpisodeSummary",
+    "RunSummary",
+    "TickLog",
+    "oscillation",
+    "percentile",
+    "summarize_episode",
+    "summarize_run",
+]
 
 OUTCOMES = {"goal": "won", "dead": "died", "timeout": "timeout"}
 
@@ -69,6 +77,9 @@ class EpisodeSummary(BaseModel):
     tokens_per_observation: float | None
     mean_top_probability: float | None
     record_path: str | None = None
+    #: Raw per-tick latencies, kept so run-level percentiles are over ticks, not episodes.
+    tick_total_ms: list[float] = []
+    tick_backend_ms: list[float] = []
 
 
 def percentile(values: list[float], q: float) -> float | None:
@@ -126,4 +137,73 @@ def summarize_episode(
         tokens_per_observation=_mean([a + b for a, b in zip(inp, cached, strict=True)]),
         mean_top_probability=_mean(tops),
         record_path=record_path,
+        tick_total_ms=total,
+        tick_backend_ms=backend,
+    )
+
+
+class RunSummary(BaseModel):
+    """The run-level aggregate over episodes (story 4.2).
+
+    Rates are over episodes; ``agreement`` and the latency, token and
+    probability means are over all ticks; ``steps_over_oracle`` is the mean over
+    episodes where it is defined; ``decisions_per_s`` is total steps over total
+    ``total_ms``.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    episodes: int
+    ticks: int
+    completion: float
+    died: float
+    timed_out: float
+    cut_short: float
+    agreement: float
+    steps_over_oracle: float | None
+    distinct_cell_ratio: float | None
+    reversals_per_episode: float | None
+    decisions_per_s: float | None
+    p50_total_ms: float | None
+    p95_total_ms: float | None
+    p50_backend_ms: float | None
+    p95_backend_ms: float | None
+    tokens_per_observation: float | None
+    mean_cached_tokens: float | None
+    mean_top_probability: float | None
+
+
+def _tick_weighted(eps: list[EpisodeSummary], field: str) -> float | None:
+    pairs = [(getattr(e, field), e.steps) for e in eps if getattr(e, field) is not None and e.steps]
+    total = sum(n for _, n in pairs)
+    return sum(v * n for v, n in pairs) / total if total else None
+
+
+def summarize_run(eps: list[EpisodeSummary]) -> RunSummary:
+    """Aggregate episode summaries (see :class:`RunSummary` for the weighting)."""
+    n = len(eps)
+    ticks = sum(e.steps for e in eps)
+    rate = lambda outcome: (sum(e.outcome == outcome for e in eps) / n) if n else 0.0
+    total = [ms for e in eps for ms in e.tick_total_ms]
+    backend = [ms for e in eps for ms in e.tick_backend_ms]
+    ratios = [e.steps_over_oracle for e in eps if e.steps_over_oracle is not None]
+    return RunSummary(
+        episodes=n,
+        ticks=ticks,
+        completion=rate("won"),
+        died=rate("died"),
+        timed_out=rate("timeout"),
+        cut_short=(sum(e.outcome in ("stopped", "max_ticks") for e in eps) / n) if n else 0.0,
+        agreement=_tick_weighted(eps, "agreement") or 0.0,
+        steps_over_oracle=_mean(ratios),
+        distinct_cell_ratio=_mean([e.distinct_cell_ratio for e in eps if e.steps]),
+        reversals_per_episode=_mean([float(e.reversals) for e in eps]),
+        decisions_per_s=(ticks / (sum(total) / 1000)) if total and sum(total) > 0 else None,
+        p50_total_ms=percentile(total, 50),
+        p95_total_ms=percentile(total, 95),
+        p50_backend_ms=percentile(backend, 50),
+        p95_backend_ms=percentile(backend, 95),
+        tokens_per_observation=_tick_weighted(eps, "tokens_per_observation"),
+        mean_cached_tokens=_tick_weighted(eps, "mean_cached_tokens"),
+        mean_top_probability=_tick_weighted(eps, "mean_top_probability"),
     )
