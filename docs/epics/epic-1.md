@@ -15,7 +15,7 @@ A deterministic gridworld: small rectangular map with walls, one player, a goal,
 | id | title | status |
 |---|---|---|
 | 1.1 | Observation record and map generation | completed |
-| 1.2 | Step dynamics — movement, monsters, combat, termination | ready-for-dev |
+| 1.2 | Step dynamics — movement, monsters, combat, termination | completed |
 | 1.3 | Scripted oracle policy | ready-for-dev |
 | 1.4 | Episode recording and replay | ready-for-dev |
 ## Related
