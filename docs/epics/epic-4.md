@@ -1,6 +1,6 @@
 ---
 type: epic
-status: completed
+status: in-progress
 title: Harness, scoring and reports
 epic: 4
 owner: maddie
@@ -18,5 +18,6 @@ The loop: observe, render, ask one `choice`, act, log. Scoring: oracle agreement
 | 4.2 | Scoring and the run report | completed |
 | 4.3 | play CLI and headless CI run with the fake backend | completed |
 | 4.4 | Memory modes — none, summary, transcript | completed |
+| 4.5 | Legal-action mask and label style | in-progress |
 ## Related
 - [PRD](../product/prd-gridworld-benchmark.md)
