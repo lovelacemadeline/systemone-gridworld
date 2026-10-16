@@ -10,6 +10,11 @@ One JSON object per line, discriminated by ``kind``::
     ...
     {"kind": "end", "observation": {...}, "reward": 1, "reason": "goal"}
 
+``usage`` on a tick line (the backend's token counts) is optional, as is the
+header's ``memory`` mode (default ``none``); both are additive within v1.
+An ``end`` reason other than goal/dead/timeout (``stopped``, ``max_ticks``)
+marks an episode the harness cut short.
+
 A ``tick`` line holds the observation the decision was made on and the action
 taken from it; the first one is ``GridWorld.reset(seed)``. The ``end`` line
 holds the terminal observation (written by :meth:`EpisodeRecorder.end`; absent
@@ -47,6 +52,9 @@ __all__ = [
 
 VERSION = 1
 
+#: End reasons the simulator itself produces; anything else is a harness cut-off.
+SIM_REASONS = ("goal", "dead", "timeout")
+
 
 class EpisodeHeader(BaseModel):
     """First line: everything needed to rebuild the starting state, plus provenance."""
@@ -59,6 +67,7 @@ class EpisodeHeader(BaseModel):
     config: WorldConfig
     backend: str
     mode: str
+    memory: str = "none"
     git_rev: str | None = None
 
 
@@ -73,6 +82,7 @@ class TickRecord(BaseModel):
     probabilities: dict[Action, float] | None = None
     oracle_action: Action
     timing: dict[str, float] | None = None
+    usage: dict[str, int] | None = None
 
 
 class EpisodeEnd(BaseModel):
@@ -138,6 +148,7 @@ class EpisodeRecorder:
         oracle_action: Action,
         probabilities: dict[Action, float] | None = None,
         timing: dict[str, float] | None = None,
+        usage: dict[str, int] | None = None,
     ) -> None:
         """Record the decision taken from ``observation``."""
         self._write(
@@ -147,6 +158,7 @@ class EpisodeRecorder:
                 probabilities=probabilities,
                 oracle_action=oracle_action,
                 timing=timing,
+                usage=usage,
             )
         )
 
@@ -243,9 +255,12 @@ def replay(path: str | Path) -> Iterator[Observation]:
             result = world.step(episode.ticks[i].action)
             current = result.observation
     end = episode.end
-    if (
-        end is not None
-        and result is not None
-        and (result.reward, result.info["reason"]) != (end.reward, end.reason)
-    ):
-        raise ReplayMismatch(f"{path}: end differs on replay")
+    if end is not None and result is not None:
+        sim_reason = result.info["reason"]
+        # A harness may cut an episode short ("stopped", "max_ticks"): then the sim has
+        # not ended it, and the recorded reason must not claim a sim ending.
+        if sim_reason is None:
+            if end.reason in SIM_REASONS:
+                raise ReplayMismatch(f"{path}: end claims {end.reason!r}; the sim had not ended")
+        elif (result.reward, sim_reason) != (end.reward, end.reason):
+            raise ReplayMismatch(f"{path}: end differs on replay")

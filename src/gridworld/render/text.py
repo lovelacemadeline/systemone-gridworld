@@ -111,7 +111,7 @@ _MONSTER = re.compile(r"M(\d+) \((\d+),(\d+)\) hp (\d+)")
 
 
 def parse_text(text: str) -> Observation:
-    """Invert :func:`to_text` (lines after the status line, e.g. a memory tail, are ignored).
+    """Invert :func:`to_text`; a memory tail on the status line or later lines is ignored.
 
     For backends that must act from the rendered state alone (ADR-0002), such
     as the fake backend. The seed is not rendered, so it comes back as 0.

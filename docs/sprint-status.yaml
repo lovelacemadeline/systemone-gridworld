@@ -57,13 +57,13 @@ epics:
         status: completed
   - epic: 4
     title: Harness, scoring and reports
-    status: pending
+    status: in-progress
     story_home: docs/stories/
     stories_count: 4
     stories:
       - id: "4.1"
         title: Episode loop and decision log
-        status: pending
+        status: completed
       - id: "4.2"
         title: Scoring and the run report
         status: pending

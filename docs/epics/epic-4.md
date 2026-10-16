@@ -1,6 +1,6 @@
 ---
 type: epic
-status: pending
+status: in-progress
 title: Harness, scoring and reports
 epic: 4
 owner: maddie
@@ -14,7 +14,7 @@ The loop: observe, render, ask one `choice`, act, log. Scoring: oracle agreement
 ## Stories
 | id | title | status |
 |---|---|---|
-| 4.1 | Episode loop and decision log | pending |
+| 4.1 | Episode loop and decision log | completed |
 | 4.2 | Scoring and the run report | pending |
 | 4.3 | play CLI and headless CI run with the fake backend | pending |
 | 4.4 | Memory modes — none, summary, transcript | pending |

@@ -9,15 +9,17 @@ Shape::
                               "criteria": {<the six actions, in Action order>: <one line>}}}}
 
 The state text is :func:`~gridworld.render.text.to_text` of the observation,
-followed by ``memory_tail`` on its own line(s) when given (story 4.4's
-``summary`` mode). It stays the last thing in the text so the stable-first
-layout (story 2.1) still maximises the shared prefix between ticks. Image mode
+with ``memory_tail`` appended to its status line as `` | <tail>`` when given
+(story 4.4's ``summary`` mode, and the System Two plan seam). The status line
+stays the last line, so the stable-first layout (story 2.1) still maximises
+the shared prefix between ticks and only the status line differs from
+``none``. Image mode
 sends the same text plus the :func:`~gridworld.render.image.to_png` block
 (a local schema extension, see ``schema/local-extensions.md``).
 
-Room left for story 4.4's ``transcript`` mode: the state is assembled by
-:func:`build_state` from a list of text turns, so a multi-turn request is a
-longer list of strings — already valid under the vendored schema.
+Story 4.4's ``transcript`` mode passes ``history`` (prior turns): the state
+is then :func:`build_state` of ``[*history, text]``, a list of strings —
+valid under the vendored schema.
 """
 
 from __future__ import annotations
@@ -62,7 +64,7 @@ DEFAULT_PREFIX = (
 
 @dataclass(frozen=True)
 class BuiltRequest:
-    """The wire request plus the state text it carries (for token accounting)."""
+    """The wire request plus this tick's state text (for token accounting and transcripts)."""
 
     request: dict[str, Any]
     text: str
@@ -85,6 +87,7 @@ def build_request(
     mode: Mode = "text",
     prefix: str = DEFAULT_PREFIX,
     memory_tail: str | None = None,
+    history: list[str] | tuple[str, ...] = (),
     model: str | None = None,
     options: dict[str, Any] | None = None,
     tile: int = 16,
@@ -92,13 +95,14 @@ def build_request(
     """Build the one-question ``choice`` request for ``obs`` in ``mode``."""
     text = to_text(obs)
     if memory_tail:
-        text = f"{text}\n{memory_tail}"
+        text = f"{text} | {memory_tail}"
+    turns = [*history, text]
     if mode == "text":
-        state = build_state([text])
+        state = build_state(turns)
     elif mode == "image":
         from ..render.image import to_png
 
-        state = build_state([text], to_png(obs, tile))
+        state = build_state(turns, to_png(obs, tile))
     else:
         raise ValueError(f"unknown mode {mode!r}; expected 'text' or 'image'")
     request: dict[str, Any] = {}

@@ -11,7 +11,7 @@ PIL image, all of it is testable headless and the window cannot drift from
 the renderer (ADR-0001).
 
 ``decisions/s`` is computed from recorded ``timing`` (milliseconds per phase;
-``total`` if present, else the sum of phases) over every tick seen so far, so
+``total_ms`` or ``total`` if present, else the sum of phases) over every tick seen so far, so
 a replay shows the speed of the original run, not of the playback. It reads
 ``-`` until a tick with timing arrives.
 
@@ -70,7 +70,11 @@ class DecisionRate:
         if not timing:
             return
         self.decisions += 1
-        self.total_ms += timing["total"] if "total" in timing else sum(timing.values())
+        for key in ("total_ms", "total"):
+            if key in timing:
+                self.total_ms += timing[key]
+                return
+        self.total_ms += sum(timing.values())
 
     @property
     def per_second(self) -> float | None:

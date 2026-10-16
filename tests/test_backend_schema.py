@@ -87,10 +87,17 @@ def test_image_block_fails_the_vendored_schema_alone():
     assert not Draft202012Validator(load_schema("request")).is_valid(built.request)
 
 
-def test_memory_tail_goes_after_the_status_line():
-    built = build_request(OBS, memory_tail="Recent: east, east, north")
-    assert built.text.split("\n")[-2].startswith("Status:")
-    assert built.request["state"].endswith("Recent: east, east, north")
+def test_memory_tail_extends_the_status_line():
+    built = build_request(OBS, memory_tail="recent: east, east, north")
+    last = built.text.split("\n")[-1]
+    assert last.startswith("Status:") and last.endswith(" | recent: east, east, north")
+    assert built.text.split("\n")[:-1] == to_text(OBS).split("\n")[:-1]
+
+
+def test_history_makes_a_multi_turn_state():
+    built = build_request(OBS, history=["turn 1"])
+    assert built.request["state"] == ["turn 1", built.text]
+    validate_request(built.request)
 
 
 def test_multi_turn_state_is_a_list_of_strings():
