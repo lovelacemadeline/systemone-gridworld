@@ -81,7 +81,7 @@ epics:
         status: completed
   - epic: 5
     title: System Two — let the model choose to pause and plan
-    status: in-progress
+    status: completed
     story_home: docs/stories/
     stories_count: 6
     stories:
@@ -102,4 +102,4 @@ epics:
         status: completed
       - id: "5.6"
         title: Rule-based replan triggers — every N ticks, on damage, on reversals
-        status: pending
+        status: completed

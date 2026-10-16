@@ -15,6 +15,18 @@ Triggers (``--think``):
   P(yes) is recorded every tick; when it is at least ``threshold`` and at least
   ``cooldown`` ticks have passed since the last plan, a plan is made.
 
+- ``rule`` (story 5.6): the harness decides, before the decision, from what
+  it can see: ``replan_every`` N (ticks 0, N, 2N, ...: reason ``interval``),
+  ``replan_on_damage`` (hp lower than the previous tick: ``damage``),
+  ``replan_on_reversals`` K (K immediate reversals since the last plan:
+  ``reversals``). Any combination; reasons that coincide are joined with
+  ``+``. The cooldown applies (set ``cooldown`` 0 to plan on every hit).
+
+Every plan records its ``reason`` (``start``, ``demand``, or the rule
+reasons). The plan prompt's user turn is the rendered state plus a context
+line: the last few moves with resulting cells, current hp, and why the plan is
+being asked for, so a refreshed plan sees what went wrong.
+
 Cost (``--think-cost``): ``free`` (default) plans before the action on the
 same tick — the decision is asked again with the new plan in the tail, and
 monsters get no extra turn; ``tick`` spends the turn: the tick's action is
@@ -35,9 +47,10 @@ from .plan import DEFAULT_PLAN_MAX_TOKENS, Planner, PlanResult, PlanStyle
 
 __all__ = ["PAUSE_INSTRUCTIONS", "PAUSE_QUESTION", "Cost", "SystemTwo", "ThinkConfig", "Trigger"]
 
-Trigger = Literal["never", "start", "demand"]
+Trigger = Literal["never", "start", "demand", "rule"]
 Cost = Literal["free", "tick"]
 
+RECENT = 5
 PAUSE_QUESTION = "pause_to_plan"
 PAUSE_INSTRUCTIONS = "Should you pause to make a plan before acting?"
 
@@ -50,6 +63,16 @@ class ThinkConfig:
     threshold: float = 0.7
     cooldown: int = 5
     cost: Cost = "free"
+    replan_every: int | None = None
+    replan_on_damage: bool = False
+    replan_on_reversals: int | None = None
+
+    def __post_init__(self) -> None:
+        rules = (self.replan_every, self.replan_on_damage, self.replan_on_reversals)
+        if self.trigger == "rule" and not any(rules):
+            raise ValueError(
+                "--think rule needs --replan-every, --replan-on-damage or --replan-on-reversals"
+            )
 
 
 class SystemTwo:
@@ -67,15 +90,36 @@ class SystemTwo:
         self.pause_p: list[float] = []
         self._tick: dict[str, Any] = {}
         self._planned_tick: int | None = None
+        self._recent: list[tuple[str, tuple[int, int]]] = []
+        self._cells: list[tuple[int, int]] = []
+        self._last_hp: int | None = None
+        self._reversals_since_plan = 0
 
     # -- planning -----------------------------------------------------------------
 
-    def _plan(self, obs: Observation) -> PlanResult:
+    def context_line(self, obs: Observation, reason: str) -> str:
+        """The plan prompt's context: recent moves, hp, and why a plan is wanted now."""
+        recent = ", ".join(f"{a}->({x},{y})" for a, (x, y) in self._recent[-RECENT:]) or "none"
+        why = {"start": "start of the episode", "demand": "you asked to pause and plan"}
+        reasons = ", ".join(
+            {
+                "interval": "scheduled refresh",
+                "damage": "you just lost hp",
+                "reversals": "you keep moving back and forth",
+            }.get(r, why.get(r, r))
+            for r in reason.split("+")
+        )
+        return f"Recent moves: {recent} | hp {obs.player_hp} | Planning now because: {reasons}"
+
+    def _plan(self, obs: Observation, reason: str) -> PlanResult:
         if self.view is not None and hasattr(self.view, "thinking"):
             self.view.thinking(obs)
+        state = f"{to_text(obs)}\n{self.context_line(obs, reason)}"
         result = self.planner.plan(
-            self.prefix, to_text(obs), style=self.config.style, max_tokens=self.config.max_tokens
+            self.prefix, state, style=self.config.style, max_tokens=self.config.max_tokens
         )
+        result = result.model_copy(update={"reason": reason})
+        self._reversals_since_plan = 0
         self.plans.append((obs.tick, result))
         self._planned_tick = obs.tick
         self._tick["plan"] = result
@@ -87,9 +131,26 @@ class SystemTwo:
 
     # -- hooks ----------------------------------------------------------------------
 
+    def rule_reasons(self, obs: Observation, tick: int) -> list[str]:
+        """Which rule triggers fire for this tick (before the cooldown)."""
+        cfg, out = self.config, []
+        if cfg.replan_every and tick % cfg.replan_every == 0:
+            out.append("interval")
+        if cfg.replan_on_damage and self._last_hp is not None and obs.player_hp < self._last_hp:
+            out.append("damage")
+        if cfg.replan_on_reversals and self._reversals_since_plan >= cfg.replan_on_reversals:
+            out.append("reversals")
+        return out
+
     def before_decision(self, obs: Observation, tick: int) -> str | None:
-        if self.config.trigger == "start" and tick == 0 and not self.plans:
-            self._plan(obs)
+        cfg = self.config
+        if cfg.trigger == "start" and tick == 0 and not self.plans:
+            self._plan(obs, "start")
+        elif cfg.trigger == "rule":
+            reasons = self.rule_reasons(obs, tick)
+            if reasons and self._cooled(tick):
+                self._plan(obs, "+".join(reasons))
+        self._last_hp = obs.player_hp
         return f"plan: {self.plan_text}" if self.plan_text else None
 
     def extra_questions(self, obs: Observation, tick: int) -> dict[str, Any] | None:
@@ -110,7 +171,7 @@ class SystemTwo:
                 self.pause_p.append(float(p))
                 self._tick["pause_p"] = float(p)
                 if p >= cfg.threshold and self._cooled(tick):
-                    self._plan(obs)
+                    self._plan(obs, "demand")
         if self._planned_tick != tick:
             return None
         if cfg.cost == "tick":
@@ -119,16 +180,32 @@ class SystemTwo:
             return Directive(redecide=True)
         return None
 
+    def observe_tick(self, log: Any) -> None:
+        """Track moves, cells and reversals (the rule triggers and the plan context)."""
+        if not self._cells:
+            self._cells.append(log.observation.player)
+        self._cells.append(log.after.player)
+        self._recent.append((log.action.value, log.after.player))
+        c = self._cells
+        if len(c) >= 3 and c[-1] == c[-3] and c[-1] != c[-2]:
+            self._reversals_since_plan += 1
+
     def tick_extras(self) -> dict[str, Any]:
         out, self._tick = self._tick, {}
         return out
 
     def hooks(self, after_tick=None) -> Hooks:
         """The loop hooks, with an optional extra ``after_tick`` passed through."""
+
+        def _after(log: Any) -> None:
+            self.observe_tick(log)
+            if after_tick is not None:
+                after_tick(log)
+
         return Hooks(
             before_decision=self.before_decision,
             extra_questions=self.extra_questions,
             after_decision=self.after_decision,
             tick_extras=self.tick_extras,
-            after_tick=after_tick,
+            after_tick=_after,
         )

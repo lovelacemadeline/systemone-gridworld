@@ -69,6 +69,8 @@ class PlanResult(BaseModel):
     truncated: bool
     wall_ms: float
     planner: str
+    #: Why System Two planned: start, demand, or rule reasons such as interval+damage.
+    reason: str | None = None
 
 
 class Planner(Protocol):

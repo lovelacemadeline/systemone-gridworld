@@ -98,6 +98,8 @@ class EpisodeSummary(BaseModel):
     think_ms: float = 0.0
     decision_tokens: int = 0
     pause_p: list[float] = []
+    #: Plans per trigger reason (story 5.6); joint reasons count toward each part.
+    plan_reasons: dict[str, int] = {}
     record_path: str | None = None
     #: Raw per-tick latencies, kept so run-level percentiles are over ticks, not episodes.
     tick_total_ms: list[float] = []
@@ -121,6 +123,14 @@ def oscillation(cells: list[Cell]) -> tuple[float, int]:
 
 def _mean(values: list[float]) -> float | None:
     return fmean(values) if values else None
+
+
+def _reason_counts(reasons) -> dict[str, int]:
+    out: dict[str, int] = {}
+    for r in reasons:
+        for part in (r or "unknown").split("+"):
+            out[part] = out.get(part, 0) + 1
+    return out
 
 
 def summarize_episode(
@@ -167,6 +177,7 @@ def summarize_episode(
         think_ms=sum(t.timing.get("think_ms", 0.0) for t in ticks),
         decision_tokens=sum(a + b for a, b in zip(inp, cached, strict=True)),
         pause_p=[t.pause_p for t in ticks if t.pause_p is not None],
+        plan_reasons=_reason_counts(p.reason for p in plans),
         record_path=record_path,
         tick_total_ms=total,
         tick_backend_ms=backend,
@@ -215,6 +226,7 @@ class RunSummary(BaseModel):
     pause_p_p90: float | None = None
     #: Counts of per-tick P(yes) in ten bins [0, 0.1), ..., [0.9, 1.0].
     pause_p_hist: list[int] = []
+    plan_reasons: dict[str, int] = {}
 
 
 def _tick_weighted(eps: list[EpisodeSummary], field: str) -> float | None:
@@ -272,6 +284,10 @@ def summarize_run(eps: list[EpisodeSummary]) -> RunSummary:
         pause_p_mean=_mean(pause),
         pause_p_p50=percentile(pause, 50),
         pause_p_p90=percentile(pause, 90),
+        plan_reasons={
+            k: sum(e.plan_reasons.get(k, 0) for e in eps)
+            for k in sorted({k for e in eps for k in e.plan_reasons})
+        },
         pause_p_hist=[sum(min(int(p * 10), 9) == b for p in pause) for b in range(10)]
         if pause
         else [],

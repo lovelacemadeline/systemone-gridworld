@@ -49,6 +49,18 @@ matches the story 4.5 post-landing numbers). The last two rows are the story
 | think demand, plan trace | 40.0% | 40.0% | 10.6% | 0.77 | 3.82 | 4.27 | 0.00 | - | 0.0% | 55412 | 0.05 |
 | baseline, `--memory-k 10` | 20.0% | 40.0% | 27.4% | 0.56 | 6.88 | 3.47 | 0.00 | - | 0.0% | 54691 | - |
 | baseline, `--memory-visits` | 40.0% | 40.0% | 10.6% | 0.77 | 6.73 | 4.24 | 0.00 | - | 0.0% | 31034 | - |
+| 26B decider alone (think never) | 80.0% | 0.0% | 56.1% | 0.77 | 0.84 | 3.97 | 0.00 | - | 0.0% | 30568 | - |
+| E2B decides, 26B plans at start (5.5) | 0.0% | 60.0% | 49.0% | 0.52 | 4.39 | 3.13 | 1.00 | 78 | 30.6% | 59027 | - |
+| E2B decides, 26B replans every 8 + on damage (5.6) | 20.0% | 40.0% | 33.9% | 0.46 | 1.10 | 3.41 | 12.20 | 82 | 82.5% | 69613 | - |
+
+The last three rows were added later, same flags and seeds. The 26B-alone and
+start-only split rows are the coordinator's runs:
+`runs/20261016T162447Z-local-mlx-community-gemma-4-26b-a4b-it-qat-4bit-text-summary-legal-words`
+(won seeds 0 to 3 in 13 to 15 steps, timed out on 4, 33 reversals per episode)
+and `runs/20261016T163023Z-local-mlx-community-gemma-4-e2b-it-qat-4bit-text-summary-legal-words-think-start-direct`
+(`--plan-model` 26B; died on seeds 0, 2 and 3, timed out on 1 and 4, 78 reversals
+per episode). The rule-replan row is story 5.6's run
+(`runs/story-5-6/20261016T163641Z-...-think-rule-direct`).
 
 What the rows say:
 

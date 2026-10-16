@@ -67,6 +67,9 @@ def _think_kwargs(args: argparse.Namespace) -> dict:
         "threshold": args.think_threshold,
         "cooldown": args.think_cooldown,
         "cost": args.think_cost,
+        "replan_every": args.replan_every,
+        "replan_on_damage": args.replan_on_damage,
+        "replan_on_reversals": args.replan_on_reversals,
     }
 
 
@@ -100,8 +103,14 @@ def _play(args: argparse.Namespace) -> int:
     from .harness.prompts import load_prefix
     from .harness.report import headline_table
     from .harness.session import run_session
+    from .harness.think import ThinkConfig
     from .sim import WorldConfig
 
+    try:
+        think = ThinkConfig(**_think_kwargs(args))
+    except ValueError as exc:
+        print(f"gridworld play: {exc}", file=sys.stderr)
+        return 2
     problem = _check_plan_flags(args)
     if problem:
         print(f"gridworld play: {problem}", file=sys.stderr)
@@ -125,9 +134,6 @@ def _play(args: argparse.Namespace) -> int:
         tick_limit=args.tick_limit or defaults.tick_limit,
     )
     backend = _backend(args)
-    from .harness.think import ThinkConfig
-
-    think = ThinkConfig(**_think_kwargs(args))
     planner = _planner(args, backend) if think.trigger != "never" else None
     try:
         result = run_session(
@@ -209,7 +215,12 @@ def build_parser() -> argparse.ArgumentParser:
     play.add_argument("--scale", type=int, default=3)
     play.add_argument("--flash", type=float, default=1.0, help="seconds to show each result")
     two = play.add_argument_group("System Two (Epic 5)")
-    two.add_argument("--think", choices=["never", "start", "demand"], default="never")
+    two.add_argument("--think", choices=["never", "start", "demand", "rule"], default="never")
+    two.add_argument("--replan-every", type=int, default=None, help="rule: plan every N ticks")
+    two.add_argument("--replan-on-damage", action="store_true", help="rule: plan when hp drops")
+    two.add_argument(
+        "--replan-on-reversals", type=int, default=None, help="rule: plan after K reversals"
+    )
     two.add_argument(
         "--think-threshold", type=float, default=0.7, help="demand: P(yes) that triggers a plan"
     )

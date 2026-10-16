@@ -51,7 +51,10 @@ def test_start_plan_goes_into_the_tail_and_nothing_else_changes(tmp_path):
     path = tmp_path / "ep.jsonl"
     run_episode(GridWorld(), planned, seed=3, max_ticks=4, hooks=two.hooks(), record_path=path)
     assert len(planner.calls) == 1
-    assert planner.calls[0]["state"] == to_text(generate_map(3))
+    assert planner.calls[0]["state"] == (
+        to_text(generate_map(3))
+        + "\nRecent moves: none | hp 6 | Planning now because: start of the episode"
+    )
     for a, b in zip(plain.requests, planned.requests, strict=True):
         la, lb = a["state"].split("\n"), b["state"].split("\n")
         assert la[:-1] == lb[:-1] and lb[-1] == la[-1] + " | plan: Go west then north."

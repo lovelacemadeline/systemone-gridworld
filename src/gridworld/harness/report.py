@@ -115,6 +115,8 @@ def build_report(meta: RunMeta, episodes: list[EpisodeSummary]) -> RunReport:
 def _fmt(v: Any, pct: bool = False) -> str:
     if v is None:
         return "-"
+    if isinstance(v, dict):
+        return ", ".join(f"{k} {n}" for k, n in v.items()) or "-"
     if pct:
         return f"{v:.1%}"
     if isinstance(v, float):
@@ -144,6 +146,7 @@ HEADLINE = [
     ("plan tokens / plan", "plan_tokens_per_plan", False),
     ("planning s / share of time", ("planning_s", "planning_share"), False),
     ("tokens / episode", "tokens_per_episode", False),
+    ("plan reasons", "plan_reasons", False),
     ("P(pause) mean / p50 / p90", ("pause_p_mean", "pause_p_p50", "pause_p_p90"), False),
 ]
 
@@ -171,7 +174,16 @@ def run_label(meta: RunMeta) -> str:
     if meta.memory_visits:
         parts.append("visits")
     t = meta.think
-    parts.append(f"think {t['trigger']}/{t['style']}/{t['cost']}" if t else "think never")
+    if t and t["trigger"] == "rule":
+        rules = [f"every {t['replan_every']}"] if t.get("replan_every") else []
+        rules += ["damage"] if t.get("replan_on_damage") else []
+        if t.get("replan_on_reversals"):
+            rules.append(f"reversals {t['replan_on_reversals']}")
+        parts.append(f"think rule({', '.join(rules)})/{t['style']}/{t['cost']}")
+    else:
+        parts.append(f"think {t['trigger']}/{t['style']}/{t['cost']}" if t else "think never")
+    if meta.planner_model and meta.planner_model != meta.model:
+        parts.append(f"planner {meta.planner_model.split('/')[-1]}")
     return ", ".join(parts)
 
 
