@@ -27,6 +27,7 @@ __all__ = [
 BACKENDS: dict[str, str] = {
     "fake": ".fake:FakeBackend",
     "local": ".local:LocalBackend",
+    "http": ".http:HTTPBackend",
 }
 
 

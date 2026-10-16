@@ -39,7 +39,7 @@ epics:
         status: completed
   - epic: 3
     title: Backends behind the wire schema
-    status: in-progress
+    status: completed
     story_home: docs/stories/
     stories_count: 4
     stories:
@@ -54,7 +54,7 @@ epics:
         status: completed
       - id: "3.4"
         title: HTTP backend for /v1/systemone servers
-        status: pending
+        status: completed
   - epic: 4
     title: Harness, scoring and reports
     status: pending
