@@ -45,6 +45,16 @@ TEXT = (230, 230, 230)
 ORACLE_OUTLINE = (255, 255, 255)
 BANNER_BG = (16, 16, 20)
 INFO_Y = 60 + 6 * 28 + 16
+PLAN_HEAD = (150, 200, 255)
+TRUNCATED = (214, 40, 96)  # distinct from the hp pips
+THINKING = (250, 200, 40)
+STRIP_TICK = (70, 70, 80)
+STRIP_PLAN = (150, 200, 255)
+STRIP_NOW = (255, 255, 255)
+STRIP_CELL = 4
+STRIP_LEN = (PANEL_WIDTH - 24) // STRIP_CELL
+PLAN_WRAP = 38
+PLAN_LINES = 9
 
 
 class ViewUnavailable(ImportError):
@@ -95,6 +105,10 @@ def render_frame(
     decisions_per_s: float | None = None,
     info_lines: Sequence[str] = (),
     banner: str | None = None,
+    plan_text: str | None = None,
+    plan_truncated: bool = False,
+    thinking: bool = False,
+    plan_ticks: Sequence[int] | None = None,
     tile: int = 16,
     scale: int = 3,
 ) -> Image.Image:
@@ -102,10 +116,19 @@ def render_frame(
 
     ``info_lines`` are drawn under the bars (session tallies in continuous
     play); ``banner`` is a centred box over the map (the end-of-episode flash).
+
+    System Two (story 5.3), drawn when ``plan_ticks`` is not ``None``: a plan
+    panel under the tallies with the current plan wrapped, a red
+    ``[truncated]`` badge when the last plan hit its cap, a yellow
+    ``thinking...`` state (also as a banner over the map) while a plan call
+    runs, and a tick strip of the last ticks with planning ticks marked.
     """
     board = to_image(obs, tile)
     board = board.resize((board.width * scale, board.height * scale), Image.Resampling.NEAREST)
-    height = max(board.height, 8 * 28 + 24, INFO_Y + 18 * len(info_lines) + 12)
+    plan_y = INFO_Y + 18 * len(info_lines) + 12
+    system_two = plan_ticks is not None
+    plan_h = 16 + 16 * PLAN_LINES + 24 if system_two else 0
+    height = max(board.height, 8 * 28 + 24, plan_y + plan_h)
     frame = Image.new("RGB", (board.width + PANEL_WIDTH, height), PANEL_BG)
     frame.paste(board, (0, 0))
     draw = ImageDraw.Draw(frame)
@@ -136,6 +159,12 @@ def render_frame(
             )
     for i, line in enumerate(info_lines):
         draw.text((x0, INFO_Y + i * 18), line, fill=TEXT, font=font)
+    if system_two:
+        _plan_panel(
+            draw, font, x0, plan_y, obs.tick, plan_text, plan_truncated, thinking, plan_ticks
+        )
+        if thinking and not banner:
+            banner = "thinking..."
     if banner:
         left, top, right, bottom = draw.textbbox((0, 0), banner, font=font)
         w, h = right - left + 40, bottom - top + 24
@@ -143,6 +172,29 @@ def render_frame(
         draw.rectangle((bx, by, bx + w, by + h), fill=BANNER_BG, outline=ORACLE_OUTLINE, width=2)
         draw.text((bx + 20 - left, by + 12 - top), banner, fill=TEXT, font=font)
     return frame
+
+
+def _plan_panel(draw, font, x0, y0, tick, text, truncated, thinking, plan_ticks) -> None:
+    import textwrap
+
+    draw.text((x0, y0), "plan", fill=PLAN_HEAD, font=font)
+    if truncated:
+        draw.rectangle((x0 + 40, y0 - 1, x0 + 118, y0 + 13), fill=TRUNCATED)
+        draw.text((x0 + 44, y0), "[truncated]", fill=TEXT, font=font)
+    if thinking:
+        draw.rectangle((x0 + 128, y0 + 1, x0 + 138, y0 + 11), fill=THINKING)
+        draw.text((x0 + 144, y0), "thinking...", fill=THINKING, font=font)
+    lines = textwrap.wrap(text or "(none yet)", PLAN_WRAP)[:PLAN_LINES]
+    for i, line in enumerate(lines):
+        draw.text((x0, y0 + 16 + 16 * i), line, fill=TEXT, font=font)
+    sy = y0 + 16 + 16 * PLAN_LINES + 6
+    start = max(0, tick - STRIP_LEN + 1)
+    marked = set(plan_ticks or ())
+    for i, t in enumerate(range(start, tick + 1)):
+        colour = STRIP_NOW if t == tick else STRIP_PLAN if t in marked else STRIP_TICK
+        x = x0 + i * STRIP_CELL
+        h = 12 if t in marked else 6
+        draw.rectangle((x, sy + 12 - h, x + STRIP_CELL - 2, sy + 11), fill=colour)
 
 
 class LiveView:
@@ -166,6 +218,10 @@ class LiveView:
         self.last_obs: Observation | None = None
         #: Lines drawn under the bars on every frame (session tallies).
         self.info_lines: list[str] = []
+        #: System Two state (story 5.3); ``plan_ticks`` is None until a planner is in play.
+        self.plan_text: str | None = None
+        self.plan_truncated = False
+        self.plan_ticks: list[int] | None = None
         self.open = True
 
     def _pump(self) -> bool:
@@ -198,6 +254,7 @@ class LiveView:
                 oracle_action=oracle_action,
                 decisions_per_s=self.rate.per_second,
                 info_lines=self.info_lines,
+                **self._plan_kwargs(),
                 tile=self.tile,
                 scale=self.scale,
             )
@@ -217,6 +274,7 @@ class LiveView:
                 decisions_per_s=self.rate.per_second,
                 info_lines=self.info_lines,
                 banner=text,
+                **self._plan_kwargs(),
                 tile=self.tile,
                 scale=self.scale,
             )
@@ -225,6 +283,44 @@ class LiveView:
         while time.monotonic() < end and self._pump():
             self._clock.tick(30)
         return self.open
+
+    def _plan_kwargs(self, thinking: bool = False) -> dict:
+        return {
+            "plan_text": self.plan_text,
+            "plan_truncated": self.plan_truncated,
+            "thinking": thinking,
+            "plan_ticks": self.plan_ticks,
+        }
+
+    def set_plan(
+        self, tick: int | None, text: str | None, truncated: bool, *, reset: bool = False
+    ) -> None:
+        """Record a plan made on ``tick`` (``reset`` starts a new episode's plan state)."""
+        if reset or self.plan_ticks is None:
+            self.plan_ticks, self.plan_text, self.plan_truncated = [], None, False
+        if tick is not None:
+            self.plan_ticks.append(tick)
+            self.plan_truncated = truncated
+            if text:
+                self.plan_text = text
+
+    def thinking(self, obs: Observation) -> bool:
+        """Show the thinking state before a (blocking) plan call; returns ``open``."""
+        if not self._pump():
+            return False
+        if self.plan_ticks is None:
+            self.plan_ticks = []
+        self._show(
+            render_frame(
+                obs,
+                decisions_per_s=self.rate.per_second,
+                info_lines=self.info_lines,
+                **self._plan_kwargs(thinking=True),
+                tile=self.tile,
+                scale=self.scale,
+            )
+        )
+        return True
 
     def _show(self, frame: Image.Image) -> None:
         pg = self._pg
@@ -268,6 +364,8 @@ def play_file(
 
     With ``verify`` the file is first re-stepped through the simulator
     (:func:`~gridworld.record.replay`), so what you watch is proven reproducible.
+    Recorded plans drive the plan panel: the text changes on the ticks where a
+    plan was made, and those ticks are marked on the strip.
     """
     if verify:
         for _ in replay(path):
@@ -277,7 +375,13 @@ def play_file(
     with LiveView(
         tile=tile, scale=scale, fps=fps, caption=f"gridworld — {Path(path).name}"
     ) as view:
+        if any(t.plan or t.pause_p is not None for t in episode.ticks):
+            view.set_plan(None, None, False, reset=True)
         for t in episode.ticks:
+            if t.plan:
+                text = " ".join(t.plan.get("plan", "").split())
+                truncated = bool(t.plan.get("truncated"))
+                view.set_plan(t.observation.tick, None if truncated else text, truncated)
             if not view.update(t.observation, t.probabilities, t.action, t.oracle_action, t.timing):
                 return shown
             shown += 1

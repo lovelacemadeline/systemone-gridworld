@@ -93,7 +93,7 @@ epics:
         status: completed
       - id: "5.3"
         title: Viewer plan panel and planning-tick markers
-        status: pending
+        status: completed
       - id: "5.4"
         title: Report — quality versus cost across triggers
         status: pending
