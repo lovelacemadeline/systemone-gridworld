@@ -149,7 +149,7 @@ def test_p_key_writes_default_once_switches_and_reaches_the_planner(monkeypatch,
     assert opened[0][1] == DEFAULT_PREFIX + "\n"
     assert view.prefix.kind == "file" and view.prefix.version == 2
     assert panel[0] == ["prefix v1 (default)", ""]
-    assert panel[2] == ["prefix v1 (file)"]
+    assert panel[2] == ["prefix v1 (file)", ""]
     assert panel[4] == ["prefix v2 (file)", "prefix reloaded at tick 4"]
     prefixes = [c["prefix"] for c in planner.calls]
     assert prefixes[:4] == [DEFAULT_PREFIX] * 4 and prefixes[4:] == [NEW] * 2
