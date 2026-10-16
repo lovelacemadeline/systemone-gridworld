@@ -16,6 +16,12 @@ the renderer (ADR-0001).
 a replay shows the speed of the original run, not of the playback. It reads
 ``-`` until a tick with timing arrives.
 
+Story 4.8: when a session hands the view its
+:class:`~gridworld.harness.prompts.PrefixSource` (``prefix``), the tallies end
+with ``prefix v<N> (file|default)`` and, for :data:`RELOAD_NOTE_S` seconds after
+a hot reload, ``prefix reloaded at tick T``. P calls ``on_prefix_key`` (the
+session's :func:`~gridworld.harness.prompts.edit_prefix`).
+
 pygame (the ``view`` extra) is imported only when a window opens;
 :class:`ViewUnavailable` names the extra to install.
 """
@@ -25,10 +31,10 @@ from __future__ import annotations
 import os
 import time
 from collections import deque
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from types import TracebackType
-from typing import Self
+from typing import Any, Self
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -62,6 +68,7 @@ STRIP_CELL = 4
 STRIP_LEN = (PANEL_WIDTH - 24) // STRIP_CELL
 PLAN_WRAP = 38
 PLAN_LINES = 9
+RELOAD_NOTE_S = 4.0  # how long "prefix reloaded at tick T" stays up (story 4.8)
 
 
 class ViewUnavailable(ImportError):
@@ -271,6 +278,10 @@ class LiveView:
         self.plan_truncated = False
         self.plan_ticks: list[int] | None = None
         self.plan_dropped: str | None = None
+        #: Story 4.8: the session's PrefixSource, the P-key action, the last reload.
+        self.prefix: Any = None
+        self.on_prefix_key: Callable[[], Any] | None = None
+        self.reload_note: tuple[int, float] | None = None
         self.open = True
 
     def _pump(self) -> bool:
@@ -280,7 +291,25 @@ class LiveView:
                 event.type == pg.KEYDOWN and event.key in (pg.K_ESCAPE, pg.K_q)
             ):
                 self.open = False
+            elif event.type == pg.KEYDOWN and event.key == pg.K_p and self.on_prefix_key:
+                self.on_prefix_key()
         return self.open
+
+    def prefix_reloaded(self, tick: int, version: int) -> None:
+        """The loop's notice that prefix ``version`` took effect on ``tick``."""
+        self.reload_note = (tick, time.monotonic())
+
+    def prefix_lines(self) -> list[str]:
+        """``prefix v<N> (file|default)``, plus the reload note while it is fresh."""
+        if self.prefix is None:
+            return []
+        lines = [f"prefix v{self.prefix.version} ({self.prefix.kind})"]
+        if self.reload_note and time.monotonic() - self.reload_note[1] < RELOAD_NOTE_S:
+            lines.append(f"prefix reloaded at tick {self.reload_note[0]}")
+        return lines
+
+    def _info(self) -> list[str]:
+        return [*self.info_lines, *self.prefix_lines()]
 
     def update(
         self,
@@ -303,7 +332,7 @@ class LiveView:
                 oracle_action=oracle_action,
                 decisions_per_s=self.rate.per_second,
                 recent_per_s=self.rate.recent_per_second,
-                info_lines=self.info_lines,
+                info_lines=self._info(),
                 **self._plan_kwargs(),
                 tile=self.tile,
                 scale=self.scale,
@@ -323,7 +352,7 @@ class LiveView:
                 obs,
                 decisions_per_s=self.rate.per_second,
                 recent_per_s=self.rate.recent_per_second,
-                info_lines=self.info_lines,
+                info_lines=self._info(),
                 banner=text,
                 **self._plan_kwargs(),
                 tile=self.tile,
@@ -375,7 +404,7 @@ class LiveView:
                 obs,
                 decisions_per_s=self.rate.per_second,
                 recent_per_s=self.rate.recent_per_second,
-                info_lines=self.info_lines,
+                info_lines=self._info(),
                 **self._plan_kwargs(thinking=True),
                 tile=self.tile,
                 scale=self.scale,

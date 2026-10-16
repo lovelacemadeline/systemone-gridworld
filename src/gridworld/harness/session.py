@@ -11,6 +11,14 @@ the interrupt is not re-raised). With a view, each episode ends with a short
 result flash (won / died / timed out), and the side panel carries session
 tallies: episodes, win rate, steps over oracle steps, oscillation and
 decisions/s over the session.
+
+Prefix (story 4.8): ``prefix`` is text or a
+:class:`~gridworld.harness.prompts.PrefixSource`; the decider and the planner
+both read it every tick, so editing a ``--prefix`` file takes effect live.
+The view's P key (:func:`~gridworld.harness.prompts.edit_prefix`) opens that
+file, or, with no file, writes the default to ``<out_dir>/<name>/prefix.txt``
+once and switches the session to it. ``meta.prefix_versions`` lists every
+version used.
 """
 
 from __future__ import annotations
@@ -28,7 +36,7 @@ from ..sim import GridWorld, WorldConfig
 from .loop import Hooks, run_episode
 from .memory import make_memory
 from .plan import Planner
-from .prompts import DEFAULT_PREFIX, with_plan_option
+from .prompts import DEFAULT_PREFIX, PrefixSource, edit_prefix, with_plan_option
 from .provenance import power_state
 from .report import RunMeta, RunReport, build_report, prefix_digest, run_name, write_report
 from .score import EpisodeSummary, summarize_run
@@ -72,7 +80,7 @@ def run_session(
     *,
     mode: Mode = "text",
     memory: str = "none",
-    prefix: str = DEFAULT_PREFIX,
+    prefix: str | PrefixSource = DEFAULT_PREFIX,
     episodes: int = 5,
     seed: int = 0,
     out_dir: str | Path = "runs",
@@ -95,11 +103,11 @@ def run_session(
     thinking = think is not None and think.trigger != "never"
     if thinking and planner is None:
         raise ValueError("a think trigger needs a planner")
+    source = prefix if isinstance(prefix, PrefixSource) else PrefixSource(text=prefix)
     # Story 5.7: under --think action the decider's prefix describes the plan
     # option; the planner keeps the plain rules.
-    plan_prefix = prefix
-    if thinking and think.trigger == "action":
-        prefix = with_plan_option(prefix)
+    wrap = with_plan_option if thinking and think.trigger == "action" else None
+    first_sent = wrap(source.current()) if wrap else source.current()
     name = run_name(
         backend.id,
         mode,
@@ -116,6 +124,11 @@ def run_session(
     started = datetime.now(UTC).isoformat(timespec="seconds")
     eps: list[EpisodeSummary] = []
     interrupted = False
+    if view is not None:
+        if hasattr(view, "prefix"):
+            view.prefix = source
+        if hasattr(view, "on_prefix_key"):
+            view.on_prefix_key = lambda: edit_prefix(source, episode_dir)
 
     def meta(finished: bool) -> RunMeta:
         return RunMeta(
@@ -134,8 +147,9 @@ def run_session(
             git_rev=rev,
             power=power_state(),
             config=world.config,
-            prefix_chars=len(prefix),
-            prefix_sha256=prefix_digest(prefix),
+            prefix_chars=len(first_sent),
+            prefix_sha256=prefix_digest(first_sent),
+            prefix_versions=list(source.versions),
             started=started,
             finished=datetime.now(UTC).isoformat(timespec="seconds") if finished else None,
             interrupted=interrupted,
@@ -148,7 +162,7 @@ def run_session(
                 view.info_lines = session_lines(eps)
             episode_hooks = hooks
             if thinking:
-                two = SystemTwo(planner, think, plan_prefix, view=view)
+                two = SystemTwo(planner, think, source, view=view)
                 episode_hooks = two.hooks(after_tick=hooks.after_tick if hooks else None)
                 if view is not None and hasattr(view, "set_plan"):
                     view.set_plan(None, None, False, reset=True)
@@ -157,7 +171,8 @@ def run_session(
                 backend,
                 seed=seed + i,
                 mode=mode,
-                prefix=prefix,
+                prefix=source,
+                prefix_wrap=wrap,
                 memory=make_memory(memory, k=memory_k, visits=memory_visits),
                 record_path=episode_dir / f"seed-{seed + i:04d}.jsonl",
                 view=view,

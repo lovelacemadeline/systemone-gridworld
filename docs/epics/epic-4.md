@@ -21,5 +21,6 @@ The loop: observe, render, ask one `choice`, act, log. Scoring: oracle agreement
 | 4.5 | Legal-action mask and label style | completed |
 | 4.6 | Summary memory knobs — recent-action length and visit counts | completed |
 | 4.7 | Frame history as a transcript — past frames stay cached | pending |
+| 4.8 | Edit the rules prefix live — hot reload and an edit key | completed |
 ## Related
 - [PRD](../product/prd-gridworld-benchmark.md)

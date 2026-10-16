@@ -14,6 +14,9 @@ One JSON object per line, discriminated by ``kind``::
 actions the request offered, story 4.5) are optional, as are System Two's
 ``pause_p``, ``plan_p`` (story 5.7) and ``plan``, as is the
 header's ``memory`` mode (default ``none``); both are additive within v1.
+Story 4.8 adds the header's ``prefix_sha256`` (the rules prefix at episode
+start) and a tick's ``prefix_reloaded`` (the new prefix version, on the tick a
+hot reload took effect).
 An ``end`` reason other than goal/dead/timeout (``stopped``, ``max_ticks``)
 marks an episode the harness cut short.
 
@@ -73,6 +76,8 @@ class EpisodeHeader(BaseModel):
     #: System Two's planner id when it differs from the backend (story 5.5), else None.
     planner: str | None = None
     git_rev: str | None = None
+    #: Story 4.8: sha256 of the rules prefix (before any plan-option sentence) at episode start.
+    prefix_sha256: str | None = None
 
 
 class TickRecord(BaseModel):
@@ -97,6 +102,8 @@ class TickRecord(BaseModel):
     #: plan left the tail before this tick's decision (``exhausted`` / ``deviated``).
     route_remaining: list[str] | None = None
     plan_dropped: str | None = None
+    #: Story 4.8: the prefix version that took effect on this tick (a hot reload).
+    prefix_reloaded: int | None = None
 
 
 class EpisodeEnd(BaseModel):
@@ -170,6 +177,7 @@ class EpisodeRecorder:
         plan: dict[str, Any] | None = None,
         route_remaining: list[str] | None = None,
         plan_dropped: str | None = None,
+        prefix_reloaded: int | None = None,
     ) -> None:
         """Record the decision taken from ``observation``."""
         self._write(
@@ -186,6 +194,7 @@ class EpisodeRecorder:
                 plan=plan,
                 route_remaining=route_remaining,
                 plan_dropped=plan_dropped,
+                prefix_reloaded=prefix_reloaded,
             )
         )
 

@@ -103,7 +103,7 @@ def _check_plan_flags(args: argparse.Namespace) -> str | None:
 
 
 def _play(args: argparse.Namespace) -> int:
-    from .harness.prompts import load_prefix
+    from .harness.prompts import DEFAULT_PREFIX, PrefixSource
     from .harness.report import headline_table
     from .harness.session import run_session
     from .harness.think import ThinkConfig
@@ -137,6 +137,11 @@ def _play(args: argparse.Namespace) -> int:
         tick_limit=args.tick_limit or defaults.tick_limit,
         damage_before_goal=args.damage_first,
     )
+    try:
+        prefix = PrefixSource(path=args.prefix) if args.prefix else PrefixSource(DEFAULT_PREFIX)
+    except OSError as exc:
+        print(f"gridworld play --prefix: {exc}", file=sys.stderr)
+        return 2
     backend = _backend(args)
     planner = _planner(args, backend) if think.trigger != "never" else None
     try:
@@ -144,7 +149,7 @@ def _play(args: argparse.Namespace) -> int:
             backend,
             mode=args.mode,
             memory=args.memory,
-            prefix=load_prefix(args.prefix),
+            prefix=prefix,
             episodes=args.episodes,
             seed=args.seed,
             out_dir=args.out,
@@ -213,7 +218,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="letters",
         help="answer labels: A-F letters (default) or the action words (options.label_style)",
     )
-    play.add_argument("--prefix", default=None, help="file replacing the default rules prefix")
+    play.add_argument(
+        "--prefix",
+        default=None,
+        help="file replacing the default rules prefix (re-read live when it changes; P in the view opens it)",
+    )
     play.add_argument("--out", default="runs")
     play.add_argument("--view", action="store_true", help="watch in a window (needs [view])")
     play.add_argument("--fps", type=float, default=0.0, help="cap ticks per second in the view")

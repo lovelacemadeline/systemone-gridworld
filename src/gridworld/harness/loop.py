@@ -14,6 +14,13 @@ One tick of :func:`run_episode`:
    ``plan_dropped`` when present), the memory is told what
    happened, and the live view (if any) is updated.
 
+**Prefix** (story 4.8): ``prefix`` is text or a
+:class:`~gridworld.harness.prompts.PrefixSource`; its :meth:`current` is called
+at the start of every tick (``prefix_wrap``, e.g. the plan-option sentence, is
+applied to what it returns). The header carries the prefix's ``prefix_sha256``;
+a tick on which the version changed records ``prefix_reloaded`` and tells the
+view (``prefix_reloaded(tick, version)``).
+
 The episode ends when the sim ends it, when ``max_ticks`` is reached
 (``max_ticks``), or when the view is closed (``stopped``).
 
@@ -42,7 +49,7 @@ from ..oracle import oracle, play_episode
 from ..record import EpisodeHeader, EpisodeRecorder, git_rev
 from ..sim import Action, GridWorld, Observation
 from .memory import Memory, NoMemory
-from .prompts import DEFAULT_PREFIX
+from .prompts import DEFAULT_PREFIX, PrefixSource
 from .score import EpisodeSummary, TickLog, summarize_episode
 
 __all__ = ["Directive", "Hooks", "oracle_steps", "run_episode"]
@@ -95,7 +102,8 @@ def run_episode(
     *,
     seed: int,
     mode: Mode = "text",
-    prefix: str = DEFAULT_PREFIX,
+    prefix: str | PrefixSource = DEFAULT_PREFIX,
+    prefix_wrap: Callable[[str], str] | None = None,
     memory: Memory | None = None,
     record_path: str | Path | None = None,
     view: Any = None,
@@ -109,6 +117,9 @@ def run_episode(
     """Play one episode of ``seed`` with ``backend``; record it and return its summary."""
     memory = memory or NoMemory()
     hooks = hooks or Hooks()
+    source = prefix if isinstance(prefix, PrefixSource) else PrefixSource(text=prefix)
+    seen = source.version
+    source.current()
     obs = world.reset(seed)
     memory.reset()
     rec = None
@@ -121,6 +132,7 @@ def run_episode(
             memory=memory.name,
             planner=planner,
             git_rev=rev if rev is not None else git_rev(),
+            prefix_sha256=source.sha256,
         )
         rec = EpisodeRecorder(record_path, header)
     ticks: list[TickLog] = []
@@ -130,8 +142,14 @@ def run_episode(
             best = oracle(obs)
             t0 = time.perf_counter()
             spent = {"render_ms": 0.0, "backend_ms": 0.0, "think_ms": 0.0}
+            text = source.current()
+            sent = prefix_wrap(text) if prefix_wrap else text
+            reloaded = source.version if source.version != seen else None
+            seen = source.version
+            if reloaded is not None and view is not None and hasattr(view, "prefix_reloaded"):
+                view.prefix_reloaded(obs.tick, reloaded)
 
-            def ask(first: bool, obs=obs, spent=spent):
+            def ask(first: bool, obs=obs, spent=spent, sent=sent):
                 ta = time.perf_counter()
                 tail = memory.tail(obs)
                 extra = None
@@ -150,7 +168,7 @@ def run_episode(
                 built = build_request(
                     obs,
                     mode=mode,
-                    prefix=prefix,
+                    prefix=sent,
                     memory_tail=tail,
                     history=memory.history(),
                     legal_only=legal_only,
@@ -214,6 +232,7 @@ def run_episode(
                     plan=extras["plan"].model_dump() if extras.get("plan") else None,
                     route_remaining=extras.get("route_remaining"),
                     plan_dropped=extras.get("plan_dropped"),
+                    prefix_reloaded=reloaded,
                 )
             memory.observe(obs, built.text, action, result.observation)
             if hooks.after_tick:

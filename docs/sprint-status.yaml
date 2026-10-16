@@ -88,6 +88,9 @@ epics:
       - id: "4.7"
         title: Frame history as a transcript — past frames stay cached
         status: pending
+      - id: "4.8"
+        title: Edit the rules prefix live — hot reload and an edit key
+        status: completed
   - epic: 5
     title: System Two — let the model choose to pause and plan
     status: in-progress

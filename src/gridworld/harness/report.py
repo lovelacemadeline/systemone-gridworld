@@ -8,7 +8,8 @@ episode.
 
 Provenance: backend id, model id when the backend exposes ``model_id``, mode,
 memory, git rev, power state (:func:`~gridworld.harness.provenance.power_state`),
-world config, prefix length and sha256, seeds, and whether the run was
+world config, prefix length and sha256 (and, story 4.8, every hot-reloaded
+prefix version), seeds, and whether the run was
 interrupted.
 """
 
@@ -59,6 +60,8 @@ class RunMeta(BaseModel):
     config: WorldConfig
     prefix_chars: int
     prefix_sha256: str
+    #: Story 4.8: every rules-prefix version the run used (version, sha256, chars, source).
+    prefix_versions: list[dict[str, Any]] = []
     started: str
     finished: str | None = None
     interrupted: bool = False
@@ -232,7 +235,13 @@ def to_markdown(report: RunReport) -> str:
             f"tick limit {m.config.tick_limit}; "
             f"tick order: {'damage first' if m.config.damage_before_goal else 'goal first'}"
         ),
-        f"- prefix: {m.prefix_chars} chars, sha256 {m.prefix_sha256[:12]}",
+        f"- prefix: {m.prefix_chars} chars, sha256 {m.prefix_sha256[:12]}"
+        + (
+            "; versions "
+            + ", ".join(f"v{v['version']} {v['sha256'][:12]}" for v in m.prefix_versions)
+            if len(m.prefix_versions) > 1
+            else ""
+        ),
         f"- started {m.started}; finished {m.finished or '-'}"
         + ("; **interrupted**" if m.interrupted else ""),
         "",

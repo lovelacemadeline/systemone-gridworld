@@ -52,6 +52,10 @@ against the route, except under ``--think-cost tick`` (that turn is ``wait``).
 A plan without a route stays until replaced, as does every plan with
 ``plan_persist`` (the pre-5.8 behaviour). A trailing ``Action: ...`` line in the
 plan is stripped before injection in both cases; the record keeps it.
+
+The planner's prefix may be a :class:`~gridworld.harness.prompts.PrefixSource`
+(story 4.8): each plan uses the text the loop loaded at the start of that tick,
+so a hot-reloaded prefix reaches the next plan call.
 """
 
 from __future__ import annotations
@@ -64,6 +68,7 @@ from ..render.text import to_text
 from ..sim import Action, Observation, legal_actions
 from .loop import Directive, Hooks
 from .plan import DEFAULT_PLAN_MAX_TOKENS, Planner, PlanResult, PlanStyle
+from .prompts import PrefixSource
 from .route import (
     DEFAULT_DEVIATION_LIMIT,
     RouteTracker,
@@ -109,7 +114,11 @@ class SystemTwo:
     """Plans for one episode at a time; call :meth:`reset` (or make a new one) per episode."""
 
     def __init__(
-        self, planner: Planner, config: ThinkConfig, prefix: str, view: Any = None
+        self,
+        planner: Planner,
+        config: ThinkConfig,
+        prefix: str | PrefixSource,
+        view: Any = None,
     ) -> None:
         self.planner, self.config, self.prefix, self.view = planner, config, prefix, view
         self.reset()
@@ -167,8 +176,10 @@ class SystemTwo:
         if self.view is not None and hasattr(self.view, "thinking"):
             self.view.thinking(obs)
         state = f"{to_text(obs)}\n{self.context_line(obs, reason)}"
+        # Story 4.8: a PrefixSource's text as the loop loaded it at the start of this tick.
+        prefix = self.prefix.text if isinstance(self.prefix, PrefixSource) else self.prefix
         result = self.planner.plan(
-            self.prefix, state, style=self.config.style, max_tokens=self.config.max_tokens
+            prefix, state, style=self.config.style, max_tokens=self.config.max_tokens
         )
         result = result.model_copy(update={"reason": reason})
         self._reversals_since_plan = 0
