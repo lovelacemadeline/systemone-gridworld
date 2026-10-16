@@ -71,13 +71,29 @@ def _think_kwargs(args: argparse.Namespace) -> dict:
 
 
 def _planner(args: argparse.Namespace, backend):
+    """The planner: ``--plan-backend`` (default: the decision backend's kind), with
+    ``--plan-model`` loading a second local model and ``--plan-url`` a second server."""
     from .harness.plan import FakePlanner, HTTPPlanner, LocalPlanner
 
-    if args.backend == "local":
+    kind = args.plan_backend or args.backend
+    if kind == "http":
+        return HTTPPlanner(args.plan_url or args.url)
+    if kind == "local":
+        if args.plan_model:
+            return LocalPlanner.from_repo(args.plan_model)
+        if args.backend != "local":
+            raise SystemExit("--plan-backend local needs --plan-model unless --backend is local")
         return LocalPlanner.from_backend(backend)
-    if args.backend == "http":
-        return HTTPPlanner(args.url)
     return FakePlanner()
+
+
+def _check_plan_flags(args: argparse.Namespace) -> str | None:
+    kind = args.plan_backend or args.backend
+    if args.plan_model and kind != "local":
+        return "--plan-model needs a local planner (--backend local or --plan-backend local)"
+    if args.plan_url and kind != "http":
+        return "--plan-url needs --plan-backend http"
+    return None
 
 
 def _play(args: argparse.Namespace) -> int:
@@ -86,6 +102,10 @@ def _play(args: argparse.Namespace) -> int:
     from .harness.session import run_session
     from .sim import WorldConfig
 
+    problem = _check_plan_flags(args)
+    if problem:
+        print(f"gridworld play: {problem}", file=sys.stderr)
+        return 2
     view = None
     if args.view:
         from .view import LiveView, ViewUnavailable
@@ -204,6 +224,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     two.add_argument("--plan", choices=["direct", "trace"], default="direct")
     two.add_argument("--plan-max-tokens", type=int, default=4096)
+    two.add_argument(
+        "--plan-backend",
+        choices=["local", "http", "fake"],
+        default=None,
+        help="where plans run (default: the decision backend's kind)",
+    )
+    two.add_argument("--plan-model", default=None, help="local: a second model for plans")
+    two.add_argument("--plan-url", default=None, help="http: a separate server for plans")
     world = play.add_argument_group("world (defaults: WorldConfig)")
     world.add_argument("--width", type=int)
     world.add_argument("--height", type=int)

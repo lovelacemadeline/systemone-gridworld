@@ -69,6 +69,8 @@ class EpisodeHeader(BaseModel):
     backend: str
     mode: str
     memory: str = "none"
+    #: System Two's planner id when it differs from the backend (story 5.5), else None.
+    planner: str | None = None
     git_rev: str | None = None
 
 

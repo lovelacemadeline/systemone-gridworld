@@ -99,6 +99,7 @@ def run_episode(
     rev: str | None = None,
     legal_only: bool = False,
     label_style: str | None = None,
+    planner: str | None = None,
 ) -> EpisodeSummary:
     """Play one episode of ``seed`` with ``backend``; record it and return its summary."""
     memory = memory or NoMemory()
@@ -113,6 +114,7 @@ def run_episode(
             backend=backend.id,
             mode=mode,
             memory=memory.name,
+            planner=planner,
             git_rev=rev if rev is not None else git_rev(),
         )
         rec = EpisodeRecorder(record_path, header)

@@ -28,6 +28,7 @@ show agreement and completion against decisions per second and total tokens.
 | 5.2 | Triggers — never, at start, on demand via a second noul question | completed |
 | 5.3 | Viewer plan panel and planning-tick markers | completed |
 | 5.4 | Report — quality versus cost across triggers | completed |
+| 5.5 | Planner on a different model than the decider | completed |
 
 ## Related
 - Story 4.4 memory modes; golden repo Epic 3 (chat route on the same model)

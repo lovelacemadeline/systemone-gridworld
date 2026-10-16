@@ -122,6 +122,8 @@ def run_session(
             legal_only=legal_only,
             labels=labels,
             think=asdict(think) if thinking else None,
+            planner=planner.id if thinking else None,
+            planner_model=getattr(planner, "model_id", None) if thinking else None,
             memory_k=memory_k,
             memory_visits=memory_visits,
             git_rev=rev,
@@ -159,6 +161,7 @@ def run_session(
                 rev=rev,
                 legal_only=legal_only,
                 label_style=label_style,
+                planner=planner.id if thinking else None,
             )
             eps.append(s)
             i += 1

@@ -83,7 +83,7 @@ epics:
     title: System Two — let the model choose to pause and plan
     status: completed
     story_home: docs/stories/
-    stories_count: 4
+    stories_count: 5
     stories:
       - id: "5.1"
         title: Plan call over the chat route and plan injection into the memory tail
@@ -96,4 +96,7 @@ epics:
         status: completed
       - id: "5.4"
         title: Report — quality versus cost across triggers
+        status: completed
+      - id: "5.5"
+        title: Planner on a different model than the decider
         status: completed

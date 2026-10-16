@@ -48,6 +48,9 @@ class RunMeta(BaseModel):
     labels: str = "letters"
     #: System Two settings (trigger, style, max_tokens, ...) or None when not thinking.
     think: dict[str, Any] | None = None
+    #: The planner's id and model when System Two is on (story 5.5: may differ from ``model``).
+    planner: str | None = None
+    planner_model: str | None = None
     #: Summary-memory knobs (story 4.6).
     memory_k: int = 3
     memory_visits: bool = False
@@ -200,6 +203,9 @@ def to_markdown(report: RunReport) -> str:
         f"# Run {m.name}",
         "",
         f"- backend: `{m.backend}`" + (f" (model `{m.model}`)" if m.model else ""),
+        f"- planner: `{m.planner}`" + (f" (model `{m.planner_model}`)" if m.planner_model else "")
+        if m.planner
+        else "- planner: none",
         (
             f"- mode: {m.mode}; memory: {m.memory} (k {m.memory_k}, visits "
             f"{'on' if m.memory_visits else 'off'}); labels: {m.labels}; "

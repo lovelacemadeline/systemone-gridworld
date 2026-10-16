@@ -171,7 +171,20 @@ class LocalPlanner:
 
     def __init__(self, model: Any, tokenizer: Any, model_id: str = "local") -> None:
         self.model, self.tokenizer = model, tokenizer
+        self.model_id = model_id
         self.id = f"local-plan:{model_id}"
+
+    @classmethod
+    def from_repo(cls, repo: str, *, loader: Any = None) -> LocalPlanner:
+        """Load a separate model for planning (story 5.5): its own weights, tokenizer and
+        cache, resident beside the decider. ``loader(repo)`` defaults to
+        ``mlx_classifiers.mlx_runner.MLXRunner.load``."""
+        if loader is None:
+            from mlx_classifiers.mlx_runner import MLXRunner
+
+            loader = MLXRunner.load
+        runner = loader(repo)
+        return cls(runner.model, runner.tokenizer, getattr(runner, "model_id", repo))
 
     @classmethod
     def from_backend(cls, backend: Any) -> LocalPlanner:
@@ -209,8 +222,9 @@ class LocalPlanner:
 class HTTPPlanner:
     """``POST {base_url}/v1/chat/completions`` with ``max_tokens`` and ``enable_thinking``.
 
-    Accepts the trace either inline (think markers in ``content``) or as a
-    separate ``reasoning_content`` field on the message.
+    Accepts the trace inline (think markers in ``content``) or as a separate
+    field on the message: ``reasoning`` (the golden server, story 3.5 there)
+    or ``reasoning_content``.
     """
 
     ROUTE = "/v1/chat/completions"
@@ -233,6 +247,7 @@ class HTTPPlanner:
         if token:
             client.headers["Authorization"] = f"Bearer {token}"
         self.client = client
+        self.model_id: str | None = None  # learned from the first reply's "model"
         self.id = f"http-plan:{base_url}"
 
     def plan(
@@ -249,11 +264,13 @@ class HTTPPlanner:
         wall_ms = (time.perf_counter() - t0) * 1000
         reply.raise_for_status()
         data = reply.json()
+        self.model_id = data.get("model", self.model_id)
         choice = data["choices"][0]
         message = choice["message"]
         text = message.get("content") or ""
-        if message.get("reasoning_content"):
-            text = f"<think>{message['reasoning_content']}</think>{text}"
+        reasoning = message.get("reasoning") or message.get("reasoning_content")
+        if reasoning:
+            text = f"<think>{reasoning}</think>{text}"
         usage = data.get("usage", {})
         return _result(
             text,
