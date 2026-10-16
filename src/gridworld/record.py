@@ -23,14 +23,14 @@ that differs, so a file is proof of its own reproducibility.
 from __future__ import annotations
 
 import subprocess
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from types import TracebackType
 from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
-from .sim import Action, GridWorld, Observation, WorldConfig
+from .sim import Action, GridWorld, Observation, StepResult, WorldConfig
 
 __all__ = [
     "Episode",
@@ -41,6 +41,7 @@ __all__ = [
     "TickRecord",
     "git_rev",
     "read_episode",
+    "record_episode",
     "replay",
 ]
 
@@ -166,6 +167,39 @@ class EpisodeRecorder:
         tb: TracebackType | None,
     ) -> None:
         self.close()
+
+
+def record_episode(
+    path: str | Path,
+    seed: int,
+    config: WorldConfig | None = None,
+    policy: Callable[[Observation], Action] | None = None,
+    *,
+    backend: str = "oracle",
+    mode: str = "observation",
+) -> StepResult:
+    """Play ``policy`` (default: the oracle) from ``seed`` and record it to ``path``.
+
+    No probabilities or timing are recorded (a bare policy has neither); the
+    harness (Epic 4) records backend episodes with both.
+    """
+    from .oracle import oracle
+
+    policy = policy or oracle
+    world = GridWorld(config)
+    obs = world.reset(seed)
+    header = EpisodeHeader(
+        seed=seed, config=world.config, backend=backend, mode=mode, git_rev=git_rev()
+    )
+    with EpisodeRecorder(path, header) as rec:
+        while True:
+            action = policy(obs)
+            rec.tick(obs, action, oracle_action=oracle(obs))
+            result = world.step(action)
+            obs = result.observation
+            if result.done:
+                rec.end(obs, result.reward, result.info["reason"])
+                return result
 
 
 def read_episode(path: str | Path) -> Episode:

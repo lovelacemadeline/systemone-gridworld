@@ -10,7 +10,7 @@ dependencies = ["pydantic>=2.7", "numpy>=1.26"]
 
 [project.optional-dependencies]
 image = ["Pillow>=10"]
-view = ["pygame-ce>=2.5"]
+view = ["pygame-ce>=2.5", "Pillow>=10"]
 http = ["httpx>=0.27"]
 # In-process backend against the golden library (sibling checkout or GitHub).
 local = ["mlx-classifiers @ git+https://github.com/lovelacemadeline/mlx-lm-as-classifiers.git"]

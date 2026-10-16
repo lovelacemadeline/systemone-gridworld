@@ -1,6 +1,6 @@
 ---
 type: epic
-status: in-progress
+status: completed
 title: Renderers — text, image, live view
 epic: 2
 owner: maddie
@@ -17,6 +17,6 @@ Pure functions of the observation: `to_text` (stable parts first, volatile line 
 | 2.1 | Text renderer with stable-first layout | completed |
 | 2.2 | Image renderer and the shared tile code | completed |
 | 2.3 | Lossless round-trip test between text, image and observation | completed |
-| 2.4 | Live view window with probability bars and oracle overlay | pending |
+| 2.4 | Live view window with probability bars and oracle overlay | completed |
 ## Related
 - ADR-0001

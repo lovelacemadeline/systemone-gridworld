@@ -7,6 +7,7 @@ from .record import (
     ReplayMismatch,
     TickRecord,
     read_episode,
+    record_episode,
     replay,
 )
 from .sim import (
@@ -35,5 +36,6 @@ __all__ = [
     "oracle",
     "play_episode",
     "read_episode",
+    "record_episode",
     "replay",
 ]

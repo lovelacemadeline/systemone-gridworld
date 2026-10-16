@@ -21,7 +21,7 @@ epics:
         status: completed
   - epic: 2
     title: Renderers — text, image, live view
-    status: in-progress
+    status: completed
     story_home: docs/stories/
     stories_count: 4
     stories:
@@ -36,7 +36,7 @@ epics:
         status: completed
       - id: "2.4"
         title: Live view window with probability bars and oracle overlay
-        status: pending
+        status: completed
   - epic: 3
     title: Backends behind the wire schema
     status: pending
