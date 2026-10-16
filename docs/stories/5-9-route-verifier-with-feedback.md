@@ -37,3 +37,16 @@ walls from an ASCII map", which is the cleaner benchmark statement.
   **then** the second plan is used and the player leaves the pocket.
 - **Given** `--route-verify 0` **when** the same episode runs **then**
   behaviour and records are unchanged.
+
+## Observation (2026-10-16, watching the 26B in image mode)
+
+Maddie: the model rarely, if ever, steps onto cells on the outer edge of the
+map. Seed 7's trap is an edge pocket at (1,1)/(1,2) whose only exits are
+along the edge, and it is the one map that still ruts in image+text+planning
+mode after seeds 0 to 6 were all won. Hypothesis: the model treats border
+cells as walls (the image has no border tiles drawn, and the text map's edge
+is just where the characters stop). Cheap to test from existing recordings:
+edge-cell visit share for the model versus the oracle on the same seeds. If
+confirmed, two fixes to compare: draw an explicit floor border in the image
+and say "the map edge is not a wall" in the prefix, versus a verifier
+(this story) that would route it out regardless.
