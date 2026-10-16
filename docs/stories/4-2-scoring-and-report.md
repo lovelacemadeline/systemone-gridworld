@@ -39,3 +39,34 @@ Per run over N episodes: oracle agreement, completion rate, mean steps over orac
 ## Acceptance Criteria
 - **Given** two runs of the fake backend at noise 0 and 0.3 **when** reported **then** agreement and completion are ordered accordingly.
 - **Given** a run **when** reported **then** the markdown and JSON carry backend id, mode, memory, git rev and power state.
+
+## Implementation notes
+
+First real run, 2026-10-16: `gridworld play --backend local --mode text --memory summary
+--episodes 5 --seed 0` on `mlx-community/gemma-4-E2B-it-qat-4bit`, headless,
+low power mode on, AC power, no fitted calibration. Headline table from
+`runs/20261016T153243Z-local-mlx-community-gemma-4-e2b-it-qat-4bit-text-summary.md`:
+
+| metric | value |
+|---|---|
+| episodes | 5 |
+| ticks | 1000 |
+| completion | 0.0% |
+| died | 0.0% |
+| timed out | 100.0% |
+| cut short | 0.0% |
+| oracle agreement | 0.0% |
+| steps / oracle steps | - |
+| distinct cells / steps | 0.01 |
+| reversals / episode | 0.00 |
+| decisions/s | 6.71 |
+| p50 / p95 total ms | 146.96 / 160.81 |
+| p50 / p95 backend ms | 146.88 / 160.72 |
+| tokens / observation | 628.04 |
+| mean cached tokens | 259.00 |
+| mean top probability | 0.54 |
+
+As in story 4.1's single episode, E2B answers `attack` on every tick and never
+leaves its start cell (distinct cells / steps 0.01), so every episode times out.
+The harness overhead is negligible (total ms is within 0.1 ms of backend ms).
+
