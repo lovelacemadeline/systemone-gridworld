@@ -229,7 +229,8 @@ def to_markdown(report: RunReport) -> str:
         "- think: " + (", ".join(f"{k} {v}" for k, v in m.think.items()) if m.think else "never"),
         (
             f"- map: {m.config.width}x{m.config.height}, {m.config.n_monsters} monsters, "
-            f"tick limit {m.config.tick_limit}"
+            f"tick limit {m.config.tick_limit}; "
+            f"tick order: {'damage first' if m.config.damage_before_goal else 'goal first'}"
         ),
         f"- prefix: {m.prefix_chars} chars, sha256 {m.prefix_sha256[:12]}",
         f"- started {m.started}; finished {m.finished or '-'}"

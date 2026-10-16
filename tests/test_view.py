@@ -90,7 +90,7 @@ def test_decision_rate_uses_total_else_sum_of_phases():
 def test_play_file_headless(headless, episode):
     from gridworld.view import play_file
 
-    shown = play_file(episode, fps=0)
+    shown = play_file(episode, fps=0, flash_s=0)
     ep = read_episode(episode)
     assert shown == len(ep.ticks) + 1
 
@@ -126,7 +126,7 @@ def test_cli_view_without_pygame_exits_2(monkeypatch, capsys, episode):
 def test_cli_oracle_then_view(headless, tmp_path, capsys):
     path = tmp_path / "oracle.jsonl"
     assert cli.main(["oracle", "--seed", "3", "--out", str(path)]) == 0
-    assert cli.main(["view", str(path), "--fps", "0", "--no-hold"]) == 0
+    assert cli.main(["view", str(path), "--fps", "0", "--no-hold", "--flash", "0"]) == 0
     assert "frames" in capsys.readouterr().out
 
 

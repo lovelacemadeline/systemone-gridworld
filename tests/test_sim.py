@@ -107,6 +107,27 @@ def test_goal_ends_with_plus_one_before_monsters_act(make_obs):
     assert r.observation.player_hp == 1 and r.observation.monsters[0].pos == (4, 2)
 
 
+def test_goal_first_by_default_wins_onto_g_beside_a_monster_at_1_hp(make_obs):
+    obs = make_obs(player=(3, 4), goal=(4, 4), player_hp=1, monsters=[((4, 3), 2)])
+    r = start(obs).step(Action.EAST)
+    assert (r.done, r.reward, r.info["reason"]) == (True, 1, "goal")
+    assert r.observation.player_hp == 1 and r.info["damage_taken"] == 0
+
+
+def test_damage_first_makes_the_same_step_a_death(make_obs):
+    obs = make_obs(player=(3, 4), goal=(4, 4), player_hp=1, monsters=[((4, 3), 2)])
+    r = start(obs, damage_before_goal=True).step(Action.EAST)
+    assert (r.done, r.reward, r.info["reason"]) == (True, -1, "dead")
+    assert r.observation.player == (4, 4) and r.observation.player_hp == 0
+    # with hp to spare it is still a win, and the hit is taken first
+    r = start(obs.model_copy(update={"player_hp": 3}), damage_before_goal=True).step(Action.EAST)
+    assert (r.reward, r.info["reason"], r.observation.player_hp) == (1, "goal", 2)
+    # ticks that do not reach the goal are the same under both orders
+    away = make_obs(player=(1, 1), goal=(6, 6), player_hp=3, monsters=[((1, 3), 2)])
+    a, b = start(away).step(Action.WAIT), start(away, damage_before_goal=True).step(Action.WAIT)
+    assert a.observation == b.observation and a.info == b.info
+
+
 def test_tick_limit_ends_with_zero(make_obs):
     w = start(make_obs(), tick_limit=3)
     results = [w.step(Action.WAIT) for _ in range(3)]

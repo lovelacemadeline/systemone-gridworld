@@ -5,7 +5,7 @@ epics:
     title: Simulator and oracle
     status: completed
     story_home: docs/stories/
-    stories_count: 4
+    stories_count: 5
     stories:
       - id: "1.1"
         title: Observation record and map generation
@@ -18,6 +18,9 @@ epics:
         status: completed
       - id: "1.4"
         title: Episode recording and replay
+        status: completed
+      - id: "1.5"
+        title: Final frame and damage-first option
         status: completed
   - epic: 2
     title: Renderers — text, image, live view

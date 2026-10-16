@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import os
 import time
+from collections import deque
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from types import TracebackType
@@ -47,6 +48,8 @@ TEXT = (230, 230, 230)
 ORACLE_OUTLINE = (255, 255, 255)
 BANNER_BG = (16, 16, 20)
 INFO_Y = 60 + 6 * 28 + 16
+END_FLASH = {"goal": "WON", "dead": "DIED", "timeout": "TIMED OUT"}  # by EpisodeEnd.reason
+RECENT_TICKS = 10  # the rolling "now X/s" window (story 1.5)
 PLAN_BAR = (90, 160, 240)  # the plan option's bar (story 5.7)
 DROPPED = (200, 160, 90)  # "plan dropped (...)" in the plan panel (story 5.8)
 PLAN_HEAD = (150, 200, 255)
@@ -77,21 +80,38 @@ def _pygame():
 
 
 class DecisionRate:
-    """Running decisions per second from per-tick ``timing`` dicts (milliseconds)."""
+    """Decisions per second from per-tick ``timing`` dicts (milliseconds).
+
+    :attr:`per_second` is the session figure: every tick's whole time,
+    planning and each map's first full prefill included. :attr:`recent_per_second`
+    (story 1.5, shown as ``now X/s``) is a rolling rate over the last
+    :data:`RECENT_TICKS` ticks with planning time (``think_ms``) taken out.
+    """
 
     def __init__(self) -> None:
         self.decisions = 0
         self.total_ms = 0.0
+        self.recent: deque[float] = deque(maxlen=RECENT_TICKS)
 
     def add(self, timing: Mapping[str, float] | None) -> None:
         if not timing:
             return
         self.decisions += 1
-        for key in ("total_ms", "total"):
-            if key in timing:
-                self.total_ms += timing[key]
-                return
-        self.total_ms += sum(timing.values())
+        total = next((timing[k] for k in ("total_ms", "total") if k in timing), None)
+        if total is None:
+            total = sum(timing.values())
+        self.total_ms += total
+        self.recent.append(max(0.0, total - timing.get("think_ms", 0.0)))
+
+    @property
+    def recent_per_second(self) -> float | None:
+        spent = sum(self.recent)
+        return len(self.recent) / (spent / 1000) if self.recent and spent > 0 else None
+
+    @property
+    def recent_tick_s(self) -> float | None:
+        """Mean seconds per recent decision tick (the live frame interval)."""
+        return sum(self.recent) / len(self.recent) / 1000 if self.recent else None
 
     @property
     def per_second(self) -> float | None:
@@ -109,6 +129,7 @@ def render_frame(
     decisions_per_s: float | None = None,
     info_lines: Sequence[str] = (),
     banner: str | None = None,
+    recent_per_s: float | None = None,
     plan_text: str | None = None,
     plan_truncated: bool = False,
     thinking: bool = False,
@@ -147,7 +168,8 @@ def render_frame(
     x0 = board.width + 12
     rate = "-" if decisions_per_s is None else f"{decisions_per_s:.1f}"
     draw.text((x0, 10), f"tick {obs.tick}   hp {obs.player_hp}", fill=TEXT, font=font)
-    draw.text((x0, 30), f"decisions/s {rate}", fill=TEXT, font=font)
+    now = "" if recent_per_s is None else f"   now {recent_per_s:.1f}/s"
+    draw.text((x0, 30), f"decisions/s {rate}{now}", fill=TEXT, font=font)
     probs = {(k if k == "plan" else Action(k)): v for k, v in (probabilities or {}).items()}
     bar_x, bar_w, bar_h = x0 + 56, PANEL_WIDTH - 56 - 24, 16
     for i, a in enumerate(rows):
@@ -280,6 +302,7 @@ class LiveView:
                 action=action,
                 oracle_action=oracle_action,
                 decisions_per_s=self.rate.per_second,
+                recent_per_s=self.rate.recent_per_second,
                 info_lines=self.info_lines,
                 **self._plan_kwargs(),
                 tile=self.tile,
@@ -299,6 +322,7 @@ class LiveView:
             render_frame(
                 obs,
                 decisions_per_s=self.rate.per_second,
+                recent_per_s=self.rate.recent_per_second,
                 info_lines=self.info_lines,
                 banner=text,
                 **self._plan_kwargs(),
@@ -350,6 +374,7 @@ class LiveView:
             render_frame(
                 obs,
                 decisions_per_s=self.rate.per_second,
+                recent_per_s=self.rate.recent_per_second,
                 info_lines=self.info_lines,
                 **self._plan_kwargs(thinking=True),
                 tile=self.tile,
@@ -365,6 +390,18 @@ class LiveView:
         self._screen.blit(pg.image.frombytes(frame.tobytes(), frame.size, "RGB"), (0, 0))
         pg.display.flip()
         self.last_frame = frame
+
+    def hold_frame(self) -> bool:
+        """Keep the current frame up for one normal frame interval (story 1.5: the
+        final frame before the result flash). With ``fps`` the last :meth:`update`
+        already waited; otherwise wait one recent decision tick (0.1 to 1 s)."""
+        if self.fps > 0:
+            return self.open
+        seconds = min(1.0, max(0.1, self.rate.recent_tick_s or 0.25))
+        end = time.monotonic() + seconds
+        while time.monotonic() < end and self._pump():
+            self._clock.tick(60)
+        return self.open
 
     def hold(self) -> None:
         """Keep the last frame up until the window is closed."""
@@ -395,6 +432,7 @@ def play_file(
     scale: int = 3,
     verify: bool = True,
     hold: bool = False,
+    flash_s: float = 1.0,
 ) -> int:
     """Play an episode file in a window, no backend needed; returns the frames shown.
 
@@ -435,8 +473,19 @@ def play_file(
             if not view.update(t.observation, probs, t.action, t.oracle_action, t.timing):
                 return shown
             shown += 1
-        if episode.end is not None and view.update(episode.end.observation):
+        if episode.end is not None:
+            last = episode.ticks[-1] if episode.ticks else None
+            probs = last.probabilities if last else None
+            if last is not None and last.plan_p is not None:
+                probs = {**(probs or {}), "plan": last.plan_p}
+            args = (probs, last.action, last.oracle_action) if last else ()
+            # Story 1.5: the final frame with the last tick's bars, then the result
+            if not view.update(episode.end.observation, *args):
+                return shown
             shown += 1
+            view.hold_frame()
+            text = END_FLASH.get(episode.end.reason, episode.end.reason.upper())
+            view.flash(f"seed {episode.header.seed}: {text}", flash_s)
         if hold:
             view.hold()
     return shown

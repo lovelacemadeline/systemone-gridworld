@@ -233,7 +233,11 @@ def run_episode(
                 reason = "max_ticks"
             if reason is not None:
                 if view is not None and open_:
-                    view.update(obs)  # the terminal state, for the end-of-episode flash
+                    # Story 1.5: the terminal state (the move onto G, the fatal hit) with
+                    # the last tick's bars, held one frame before the end-of-episode flash.
+                    view.update(obs, shown, action, best)
+                    if hasattr(view, "hold_frame"):
+                        view.hold_frame()
                 break
     except KeyboardInterrupt:
         reason = "stopped"

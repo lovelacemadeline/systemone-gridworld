@@ -27,6 +27,7 @@ def _view(args: argparse.Namespace) -> int:
             scale=args.scale,
             verify=not args.no_verify,
             hold=not args.no_hold,
+            flash_s=args.flash,
         )
     except ViewUnavailable as exc:
         print(f"gridworld view: {exc}", file=sys.stderr)
@@ -134,6 +135,7 @@ def _play(args: argparse.Namespace) -> int:
         wall_density=defaults.wall_density if args.walls is None else args.walls,
         player_hp=args.hp or defaults.player_hp,
         tick_limit=args.tick_limit or defaults.tick_limit,
+        damage_before_goal=args.damage_first,
     )
     backend = _backend(args)
     planner = _planner(args, backend) if think.trigger != "never" else None
@@ -188,6 +190,7 @@ def build_parser() -> argparse.ArgumentParser:
     view.add_argument("--scale", type=int, default=3)
     view.add_argument("--no-verify", action="store_true", help="skip re-stepping the sim first")
     view.add_argument("--no-hold", action="store_true", help="close when the episode ends")
+    view.add_argument("--flash", type=float, default=1.0, help="seconds to show the result")
     view.set_defaults(func=_view)
 
     play = sub.add_parser("play", help="run a backend for N episodes and write a report")
@@ -266,6 +269,11 @@ def build_parser() -> argparse.ArgumentParser:
     world.add_argument("--walls", type=float, help="wall density")
     world.add_argument("--hp", type=int, help="player hp")
     world.add_argument("--tick-limit", type=int)
+    world.add_argument(
+        "--damage-first",
+        action="store_true",
+        help="adjacent-monster damage resolves before the goal check (default: goal first)",
+    )
     be = play.add_argument_group("backend options")
     be.add_argument("--noise", type=float, default=0.0, help="fake: random-action rate")
     be.add_argument("--latency", type=float, default=0.0, help="fake: seconds per call")

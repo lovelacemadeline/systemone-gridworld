@@ -27,6 +27,15 @@ One tick of :meth:`GridWorld.step`, in order:
    episode ends (-1).
 5. **Clock.** ``tick`` advances on every step; reaching ``tick_limit`` without
    another ending ends the episode with reward 0.
+
+**Goal before damage is the chosen convention** (story 1.5): stepping onto G
+with 1 hp beside a monster wins. The rules prefix says "reach G to win", and
+damage is an end-of-turn effect that a finished episode never reaches.
+``WorldConfig.damage_before_goal`` (``--damage-first``) is the stricter
+alternative: when the player's move lands on the goal, every monster adjacent
+to the goal cell (where it stands, before any monster moves) deals 1 first, and
+at 0 hp the episode ends as a death (-1) instead of a win. Ticks that do not
+reach the goal are identical under both orders.
 """
 
 from __future__ import annotations
@@ -135,6 +144,8 @@ class WorldConfig(BaseModel):
     monster_hp: int = Field(default=2, ge=1)
     sight_radius: int = Field(default=4, ge=0)
     tick_limit: int = Field(default=200, ge=1)
+    #: Story 1.5: resolve adjacent-monster damage before the goal check (``--damage-first``).
+    damage_before_goal: bool = False
 
 
 class StepResult(BaseModel):
@@ -324,7 +335,11 @@ class GridWorld:
                 monsters[hit.id] = hit.model_copy(update={"hp": hit.hp - 1})
 
         reward, reason, damage, hp = 0, None, 0, obs.player_hp
-        if player == obs.goal:
+        if player == obs.goal and cfg.damage_before_goal:
+            damage = sum(adjacent(m.pos, player) for m in monsters.values())
+            hp = max(0, hp - damage)
+            reward, reason = (-1, "dead") if hp == 0 else (1, "goal")
+        elif player == obs.goal:
             reward, reason = 1, "goal"
         else:
             for mid in sorted(monsters):

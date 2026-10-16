@@ -66,7 +66,7 @@ def test_replay_plan_text_changes_on_recorded_ticks(monkeypatch, tmp_path):
             return super().update(obs, *a, **kw)
 
     monkeypatch.setattr(view_mod, "LiveView", Watch)
-    view_mod.play_file(path, fps=0)
+    view_mod.play_file(path, fps=0, flash_s=0)
     by_tick = {t: (text, marks) for t, text, marks in seen}
     assert by_tick[0][0] is None and by_tick[1][0] == "Plan one." and by_tick[3][0] == "Plan one."
     assert by_tick[4][0] == "Plan two." and by_tick[5][1] == [1, 4]

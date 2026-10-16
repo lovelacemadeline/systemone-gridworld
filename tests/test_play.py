@@ -40,6 +40,7 @@ def test_world_flags_reach_header_and_report(tmp_path):
     out = tmp_path / "runs"
     argv = ["play", "--episodes", "1", "--out", str(out), "--width", "12", "--height", "8"]
     argv += ["--monsters", "3", "--walls", "0.1", "--hp", "9", "--tick-limit", "150"]
+    argv += ["--damage-first"]
     assert cli.main(argv) == 0
     cfg = report_json(out)["meta"]["config"]
     assert cfg == {
@@ -51,9 +52,12 @@ def test_world_flags_reach_header_and_report(tmp_path):
         "monster_hp": 2,
         "sight_radius": 4,
         "tick_limit": 150,
+        "damage_before_goal": True,
     }
     (ep,) = next(out.glob("*/")).glob("seed-*.jsonl")
     assert read_episode(ep).header.config.model_dump() == cfg
+    (md,) = out.glob("*.md")
+    assert "tick order: damage first" in md.read_text()
 
 
 def test_continuous_mode_stops_after_three_episodes(tmp_path):

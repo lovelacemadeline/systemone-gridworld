@@ -262,7 +262,7 @@ def test_replay_shows_the_remaining_route_then_the_dropped_state(monkeypatch, tm
             return super().update(obs, *a, **kw)
 
     monkeypatch.setattr(view_mod, "LiveView", Watch)
-    view_mod.play_file(path, fps=0)
+    view_mod.play_file(path, fps=0, flash_s=0)
     by_tick = {tick: (text, dropped) for tick, text, dropped in seen}
     assert by_tick[0] == ("remaining route: wait, wait.", None)
     assert by_tick[1] == ("remaining route: wait.", None)
