@@ -11,7 +11,11 @@ Probabilities look like a model's: the chosen action gets a seeded draw in
 ``timing_ms.total`` reports exactly ``latency_s`` (the call sleeps that long),
 so timing tests are deterministic. ``noul`` questions are answered with
 ``noul`` (a constant P(yes), or ``f(observation, question_name)``; default
-0.1), which is how tests script System Two's pause_to_plan (story 5.2). With ``prefix_cache=True`` it simulates a
+0.1), which is how tests script System Two's pause_to_plan (story 5.2). When
+a choice question offers ``plan`` (story 5.7's ``--think action``), its
+probability is ``plan_p`` (a constant or ``f(observation)``; default 0.05),
+the other options are scaled by ``1 - plan_p``, and ``plan`` is the choice
+when ``plan_p >= 0.5``. With ``prefix_cache=True`` it simulates a
 delta prefix cache (what story 4.4's transcript mode needs from a real
 server): ``cached_tokens`` is the common character prefix with the previous
 request's ``prefix`` plus joined text, // 4, and ``input_tokens`` the rest,
@@ -54,8 +58,9 @@ class FakeBackend:
         seed: int = 0,
         prefix_cache: bool = False,
         noul: Callable[[Observation, str], float] | float = 0.1,
+        plan_p: Callable[[Observation], float] | float = 0.05,
     ) -> None:
-        self.noul = noul
+        self.noul, self.plan_p = noul, plan_p
         if not 0.0 <= noise <= 1.0:
             raise ValueError("noise must be in [0, 1]")
         self.noise, self.latency_s, self.prefix_cache = noise, latency_s, prefix_cache
@@ -75,13 +80,19 @@ class FakeBackend:
                 continue
             if question["type"] != "choice":
                 continue
-            options = list(question["criteria"])
+            options = [o for o in question["criteria"] if o != "plan"]
             pick = best.value if best.value in options else options[0]
             if self.rng.random() < self.noise:
                 pick = self.rng.choice([o for o in options if o != pick])
             top = self.rng.uniform(0.6, 0.95)
             rest = (1.0 - top) / (len(options) - 1)
             probs = {o: (top if o == pick else rest) for o in options}
+            if "plan" in question["criteria"]:
+                pp = float(self.plan_p(obs) if callable(self.plan_p) else self.plan_p)
+                probs = {o: v * (1.0 - pp) for o, v in probs.items()} | {"plan": pp}
+                if pp >= 0.5:
+                    pick = "plan"
+                top = probs[pick]
             answers[name] = {
                 "type": "choice",
                 "choice": pick,

@@ -66,6 +66,7 @@ class TickLog(BaseModel):
     after: Observation
     offered: tuple[Action, ...] = tuple(Action)
     pause_p: float | None = None
+    plan_p: float | None = None  # story 5.7: P(plan) when the action question offered it
     plan: Any = None  # harness.plan.PlanResult when System Two planned on this tick
 
 
@@ -98,6 +99,8 @@ class EpisodeSummary(BaseModel):
     think_ms: float = 0.0
     decision_tokens: int = 0
     pause_p: list[float] = []
+    #: Story 5.7: per-tick P(plan) on ticks that offered the plan option.
+    plan_p: list[float] = []
     #: Plans per trigger reason (story 5.6); joint reasons count toward each part.
     plan_reasons: dict[str, int] = {}
     record_path: str | None = None
@@ -177,6 +180,7 @@ def summarize_episode(
         think_ms=sum(t.timing.get("think_ms", 0.0) for t in ticks),
         decision_tokens=sum(a + b for a, b in zip(inp, cached, strict=True)),
         pause_p=[t.pause_p for t in ticks if t.pause_p is not None],
+        plan_p=[t.plan_p for t in ticks if t.plan_p is not None],
         plan_reasons=_reason_counts(p.reason for p in plans),
         record_path=record_path,
         tick_total_ms=total,
@@ -226,6 +230,11 @@ class RunSummary(BaseModel):
     pause_p_p90: float | None = None
     #: Counts of per-tick P(yes) in ten bins [0, 0.1), ..., [0.9, 1.0].
     pause_p_hist: list[int] = []
+    #: Story 5.7: P(plan) under ``--think action``, reported like P(pause).
+    plan_p_mean: float | None = None
+    plan_p_p50: float | None = None
+    plan_p_p90: float | None = None
+    plan_p_hist: list[int] = []
     plan_reasons: dict[str, int] = {}
 
 
@@ -233,6 +242,11 @@ def _tick_weighted(eps: list[EpisodeSummary], field: str) -> float | None:
     pairs = [(getattr(e, field), e.steps) for e in eps if getattr(e, field) is not None and e.steps]
     total = sum(n for _, n in pairs)
     return sum(v * n for v, n in pairs) / total if total else None
+
+
+def _hist(ps: list[float]) -> list[int]:
+    """Counts in ten bins [0, 0.1), ..., [0.9, 1.0] (empty for no values)."""
+    return [sum(min(int(p * 10), 9) == b for p in ps) for b in range(10)] if ps else []
 
 
 def summarize_run(eps: list[EpisodeSummary]) -> RunSummary:
@@ -247,6 +261,7 @@ def summarize_run(eps: list[EpisodeSummary]) -> RunSummary:
     plan_tokens = sum(e.plan_completion_tokens for e in eps)
     think_ms = sum(e.think_ms for e in eps)
     pause = [p for e in eps for p in e.pause_p]
+    plan_p = [p for e in eps for p in e.plan_p]
     return RunSummary(
         episodes=n,
         ticks=ticks,
@@ -288,7 +303,9 @@ def summarize_run(eps: list[EpisodeSummary]) -> RunSummary:
             k: sum(e.plan_reasons.get(k, 0) for e in eps)
             for k in sorted({k for e in eps for k in e.plan_reasons})
         },
-        pause_p_hist=[sum(min(int(p * 10), 9) == b for p in pause) for b in range(10)]
-        if pause
-        else [],
+        pause_p_hist=_hist(pause),
+        plan_p_mean=_mean(plan_p),
+        plan_p_p50=percentile(plan_p, 50),
+        plan_p_p90=percentile(plan_p, 90),
+        plan_p_hist=_hist(plan_p),
     )

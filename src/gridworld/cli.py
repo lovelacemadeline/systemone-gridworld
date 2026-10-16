@@ -215,7 +215,12 @@ def build_parser() -> argparse.ArgumentParser:
     play.add_argument("--scale", type=int, default=3)
     play.add_argument("--flash", type=float, default=1.0, help="seconds to show each result")
     two = play.add_argument_group("System Two (Epic 5)")
-    two.add_argument("--think", choices=["never", "start", "demand", "rule"], default="never")
+    two.add_argument(
+        "--think",
+        choices=["never", "start", "demand", "action", "rule"],
+        default="never",
+        help="action: plan is a seventh option of the action question (story 5.7)",
+    )
     two.add_argument("--replan-every", type=int, default=None, help="rule: plan every N ticks")
     two.add_argument("--replan-on-damage", action="store_true", help="rule: plan when hp drops")
     two.add_argument(
@@ -224,9 +229,7 @@ def build_parser() -> argparse.ArgumentParser:
     two.add_argument(
         "--think-threshold", type=float, default=0.7, help="demand: P(yes) that triggers a plan"
     )
-    two.add_argument(
-        "--think-cooldown", type=int, default=5, help="demand: min ticks between plans"
-    )
+    two.add_argument("--think-cooldown", type=int, default=5, help="min ticks between plans")
     two.add_argument(
         "--think-cost",
         choices=["free", "tick"],

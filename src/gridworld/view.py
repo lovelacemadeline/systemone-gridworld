@@ -5,7 +5,8 @@ a pure Pillow function: on the left the map exactly as
 :func:`~gridworld.render.image.to_image` draws it (the PNG a vision backend
 sees, scaled up with nearest-neighbour), on the right a panel with hp and tick,
 decisions/s, and six probability bars in wire order (north, south, east, west,
-attack, wait). The taken action's bar is drawn in its action colour (the
+attack, wait), plus a seventh ``plan`` bar when the probabilities carry
+P(plan) (story 5.7's ``--think action``). The taken action's bar is drawn in its action colour (the
 others grey); the oracle's action is outlined in white. Because the frame is a
 PIL image, all of it is testable headless and the window cannot drift from
 the renderer (ADR-0001).
@@ -45,6 +46,7 @@ TEXT = (230, 230, 230)
 ORACLE_OUTLINE = (255, 255, 255)
 BANNER_BG = (16, 16, 20)
 INFO_Y = 60 + 6 * 28 + 16
+PLAN_BAR = (90, 160, 240)  # the plan option's bar (story 5.7)
 PLAN_HEAD = (150, 200, 255)
 TRUNCATED = (214, 40, 96)  # distinct from the hp pips
 THINKING = (250, 200, 40)
@@ -123,12 +125,15 @@ def render_frame(
     ``thinking...`` state (also as a banner over the map) while a plan call
     runs, and a tick strip of the last ticks with planning ticks marked.
     """
+    plan_p = (probabilities or {}).get("plan")
+    rows: list[Action | str] = [*Action, *(["plan"] if plan_p is not None else [])]
+    info_y = INFO_Y + 28 * (len(rows) - len(Action))
     board = to_image(obs, tile)
     board = board.resize((board.width * scale, board.height * scale), Image.Resampling.NEAREST)
-    plan_y = INFO_Y + 18 * len(info_lines) + 12
+    plan_y = info_y + 18 * len(info_lines) + 12
     system_two = plan_ticks is not None
     plan_h = 16 + 16 * PLAN_LINES + 24 if system_two else 0
-    height = max(board.height, 8 * 28 + 24, plan_y + plan_h)
+    height = max(board.height, (len(rows) + 2) * 28 + 24, plan_y + plan_h)
     frame = Image.new("RGB", (board.width + PANEL_WIDTH, height), PANEL_BG)
     frame.paste(board, (0, 0))
     draw = ImageDraw.Draw(frame)
@@ -137,15 +142,15 @@ def render_frame(
     rate = "-" if decisions_per_s is None else f"{decisions_per_s:.1f}"
     draw.text((x0, 10), f"tick {obs.tick}   hp {obs.player_hp}", fill=TEXT, font=font)
     draw.text((x0, 30), f"decisions/s {rate}", fill=TEXT, font=font)
-    probs = {Action(k): v for k, v in (probabilities or {}).items()}
+    probs = {(k if k == "plan" else Action(k)): v for k, v in (probabilities or {}).items()}
     bar_x, bar_w, bar_h = x0 + 56, PANEL_WIDTH - 56 - 24, 16
-    for i, a in enumerate(Action):
+    for i, a in enumerate(rows):
         y = 60 + i * 28
-        draw.text((x0, y + 2), a.value, fill=TEXT, font=font)
+        draw.text((x0, y + 2), getattr(a, "value", a), fill=TEXT, font=font)
         draw.rectangle((bar_x, y, bar_x + bar_w - 1, y + bar_h - 1), fill=BAR_BG)
         p = probs.get(a)
         if p is not None:
-            fill = ACTION_COLOURS[a] if a == action else BAR_OTHER
+            fill = PLAN_BAR if a == "plan" else ACTION_COLOURS[a] if a == action else BAR_OTHER
             w = round(max(0.0, min(1.0, p)) * bar_w)
             if w:
                 draw.rectangle((bar_x, y, bar_x + w - 1, y + bar_h - 1), fill=fill)
@@ -158,7 +163,7 @@ def render_frame(
                 width=2,
             )
     for i, line in enumerate(info_lines):
-        draw.text((x0, INFO_Y + i * 18), line, fill=TEXT, font=font)
+        draw.text((x0, info_y + i * 18), line, fill=TEXT, font=font)
     if system_two:
         _plan_panel(
             draw, font, x0, plan_y, obs.tick, plan_text, plan_truncated, thinking, plan_ticks
@@ -375,14 +380,17 @@ def play_file(
     with LiveView(
         tile=tile, scale=scale, fps=fps, caption=f"gridworld — {Path(path).name}"
     ) as view:
-        if any(t.plan or t.pause_p is not None for t in episode.ticks):
+        if any(t.plan or t.pause_p is not None or t.plan_p is not None for t in episode.ticks):
             view.set_plan(None, None, False, reset=True)
         for t in episode.ticks:
             if t.plan:
                 text = " ".join(t.plan.get("plan", "").split())
                 truncated = bool(t.plan.get("truncated"))
                 view.set_plan(t.observation.tick, None if truncated else text, truncated)
-            if not view.update(t.observation, t.probabilities, t.action, t.oracle_action, t.timing):
+            probs = t.probabilities
+            if t.plan_p is not None:
+                probs = {**(probs or {}), "plan": t.plan_p}
+            if not view.update(t.observation, probs, t.action, t.oracle_action, t.timing):
                 return shown
             shown += 1
         if episode.end is not None and view.update(episode.end.observation):

@@ -18,6 +18,9 @@ by side: never (baseline), once at episode start, and on demand, where each
 tick carries a second `noul` question "pause to plan?" and a yes above a
 threshold triggers a plan. The viewer shows the current plan text and marks
 planning ticks on the timeline, so a human can see when it chose to think.
+Later triggers: rules the harness can see (story 5.6), and `plan` as a
+seventh option of the action question itself, so one readout covers moving
+and thinking (story 5.7).
 Cost is the point: a plan is hundreds of decoded tokens, so the report must
 show agreement and completion against decisions per second and total tokens.
 
@@ -30,6 +33,7 @@ show agreement and completion against decisions per second and total tokens.
 | 5.4 | Report — quality versus cost across triggers | completed |
 | 5.5 | Planner on a different model than the decider | completed |
 | 5.6 | Rule-based replan triggers — every N ticks, on damage, on reversals | completed |
+| 5.7 | Plan as a seventh action | completed |
 
 ## Related
 - Story 4.4 memory modes; golden repo Epic 3 (chat route on the same model)

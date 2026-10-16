@@ -148,6 +148,7 @@ HEADLINE = [
     ("tokens / episode", "tokens_per_episode", False),
     ("plan reasons", "plan_reasons", False),
     ("P(pause) mean / p50 / p90", ("pause_p_mean", "pause_p_p50", "pause_p_p90"), False),
+    ("P(plan) mean / p50 / p90", ("plan_p_mean", "plan_p_p50", "plan_p_p90"), False),
 ]
 
 #: The cross-run table (story 5.4): quality and cost side by side.
@@ -163,6 +164,7 @@ COMPARE = [
     ("planning share", "planning_share", True),
     ("tokens/ep", "tokens_per_episode", False),
     ("P(pause) mean", "pause_p_mean", False),
+    ("P(plan) mean", "plan_p_mean", False),
 ]
 
 

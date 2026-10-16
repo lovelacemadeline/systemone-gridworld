@@ -17,6 +17,11 @@ the shared prefix between ticks and only the status line differs from
 sends the same text plus the :func:`~gridworld.render.image.to_png` block
 (a local schema extension, see ``schema/local-extensions.md``).
 
+Story 5.7's ``--think action`` passes ``plan_option=True``: the action
+question's criteria gain a seventh option, :data:`PLAN_OPTION` (``plan``),
+after ``wait``, whatever the legal mask offers. It is not an action;
+:func:`~gridworld.backends.adapter.call` reads it as a request to plan.
+
 Story 4.4's ``transcript`` mode passes ``history`` (prior turns): the state
 is then :func:`build_state` of ``[*history, text]``, a list of strings —
 valid under the vendored schema.
@@ -35,6 +40,8 @@ from .schema import IMAGE_BLOCK_TYPE
 __all__ = [
     "ACTION_CRITERIA",
     "DEFAULT_PREFIX",
+    "PLAN_CRITERION",
+    "PLAN_OPTION",
     "QUESTION",
     "BuiltRequest",
     "Mode",
@@ -54,6 +61,12 @@ ACTION_CRITERIA: dict[str, str] = {
     Action.ATTACK.value: "Hit one adjacent monster for 1 damage.",
     Action.WAIT.value: "Stay in place for one tick.",
 }
+
+#: Story 5.7: the seventh option of the action question under ``--think action``.
+PLAN_OPTION = "plan"
+PLAN_CRITERION = (
+    "Pause to make a plan before acting (costs nothing in game time unless --think-cost tick)."
+)
 
 DEFAULT_PREFIX = (
     "You are playing a turn-based grid game. Each turn you see the map and a status line, "
@@ -94,6 +107,7 @@ def build_request(
     legal_only: bool = False,
     label_style: str | None = None,
     extra_questions: dict[str, Any] | None = None,
+    plan_option: bool = False,
     tile: int = 16,
 ) -> BuiltRequest:
     """Build the one-question ``choice`` request for ``obs`` in ``mode``.
@@ -103,7 +117,9 @@ def build_request(
     ``options.label_style`` (v1 schema since golden 22f4d22); ``None`` or
     ``"letters"`` leaves it out, which is the upstream default.
     ``extra_questions`` are added after ``action`` (System Two's
-    ``pause_to_plan`` noul, story 5.2).
+    ``pause_to_plan`` noul, story 5.2). ``plan_option`` appends
+    :data:`PLAN_OPTION` to the action criteria (story 5.7); ``offered`` stays
+    the actions only.
     """
     text = to_text(obs)
     if memory_tail:
@@ -118,6 +134,9 @@ def build_request(
     else:
         raise ValueError(f"unknown mode {mode!r}; expected 'text' or 'image'")
     offered = legal_actions(obs) if legal_only else tuple(Action)
+    criteria = {a.value: ACTION_CRITERIA[a.value] for a in offered}
+    if plan_option:
+        criteria[PLAN_OPTION] = PLAN_CRITERION
     request: dict[str, Any] = {}
     if model is not None:
         request["model"] = model
@@ -128,7 +147,7 @@ def build_request(
             QUESTION: {
                 "type": "choice",
                 "instructions": "Which action next?",
-                "criteria": {a.value: ACTION_CRITERIA[a.value] for a in offered},
+                "criteria": criteria,
             },
             **(extra_questions or {}),
         },

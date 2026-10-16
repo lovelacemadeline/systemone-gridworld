@@ -11,7 +11,8 @@ One JSON object per line, discriminated by ``kind``::
     {"kind": "end", "observation": {...}, "reward": 1, "reason": "goal"}
 
 ``usage`` on a tick line (the backend's token counts) and ``offered`` (the
-actions the request offered, story 4.5) are optional, as is the
+actions the request offered, story 4.5) are optional, as are System Two's
+``pause_p``, ``plan_p`` (story 5.7) and ``plan``, as is the
 header's ``memory`` mode (default ``none``); both are additive within v1.
 An ``end`` reason other than goal/dead/timeout (``stopped``, ``max_ticks``)
 marks an episode the harness cut short.
@@ -89,6 +90,8 @@ class TickRecord(BaseModel):
     offered: tuple[Action, ...] | None = None
     #: System Two (Epic 5): P(yes) of the pause_to_plan question, and the plan made here.
     pause_p: float | None = None
+    #: Story 5.7: P(plan) when the action question offered the plan option.
+    plan_p: float | None = None
     plan: dict[str, Any] | None = None
 
 
@@ -159,6 +162,7 @@ class EpisodeRecorder:
         offered: tuple[Action, ...] | None = None,
         *,
         pause_p: float | None = None,
+        plan_p: float | None = None,
         plan: dict[str, Any] | None = None,
     ) -> None:
         """Record the decision taken from ``observation``."""
@@ -172,6 +176,7 @@ class EpisodeRecorder:
                 usage=usage,
                 offered=offered,
                 pause_p=pause_p,
+                plan_p=plan_p,
                 plan=plan,
             )
         )

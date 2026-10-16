@@ -83,7 +83,7 @@ epics:
     title: System Two — let the model choose to pause and plan
     status: completed
     story_home: docs/stories/
-    stories_count: 6
+    stories_count: 7
     stories:
       - id: "5.1"
         title: Plan call over the chat route and plan injection into the memory tail
@@ -102,4 +102,7 @@ epics:
         status: completed
       - id: "5.6"
         title: Rule-based replan triggers — every N ticks, on damage, on reversals
+        status: completed
+      - id: "5.7"
+        title: Plan as a seventh action
         status: completed

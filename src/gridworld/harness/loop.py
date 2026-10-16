@@ -10,7 +10,7 @@ One tick of :func:`run_episode`:
 4. **step**: the chosen action is stepped (or a hook's override);
 5. the tick is recorded (observation, action, probabilities, oracle action,
    usage, timing ``{render_ms, backend_ms, think_ms, step_ms, total_ms}``, and
-   System Two's ``plan`` / ``pause_p`` when present), the memory is told what
+   System Two's ``plan`` / ``pause_p`` / ``plan_p`` when present), the memory is told what
    happened, and the live view (if any) is updated.
 
 The episode ends when the sim ends it, when ``max_ticks`` is reached
@@ -19,7 +19,8 @@ The episode ends when the sim ends it, when ``max_ticks`` is reached
 **Hooks** (:class:`Hooks`) are the seam for System Two (Epic 5):
 ``before_decision(obs, tick)`` may return text that is appended to this tick's
 memory tail (a plan), ``extra_questions`` adds questions (the ``pause_to_plan``
-noul), ``after_decision`` may plan and then ask for a re-decision or override
+noul), ``offer_plan`` adds the ``plan`` option to the first request's
+action question (story 5.7), ``after_decision`` may plan and then ask for a re-decision or override
 the action (:class:`Directive`), ``tick_extras`` supplies record fields, and
 ``after_tick(log)`` sees every tick. :class:`~gridworld.harness.think.SystemTwo`
 implements them.
@@ -35,7 +36,7 @@ from typing import Any
 
 from ..backends.adapter import Decision, call
 from ..backends.base import Backend
-from ..backends.request import Mode, build_request
+from ..backends.request import PLAN_OPTION, Mode, build_request
 from ..oracle import oracle, play_episode
 from ..record import EpisodeHeader, EpisodeRecorder, git_rev
 from ..sim import Action, GridWorld, Observation
@@ -63,7 +64,9 @@ class Hooks:
     ``extra_questions(obs, tick)`` adds questions to the first request of a
     tick; ``after_decision(obs, tick, decision)`` may return a
     :class:`Directive`; ``tick_extras()`` returns fields for this tick's record
-    (``plan``, ``pause_p``). Time spent in ``before_decision`` and
+    (``plan``, ``pause_p``). ``offer_plan(obs, tick)`` says whether the first
+    request of a tick offers the ``plan`` option; the decision's P(plan) is
+    recorded as ``plan_p`` and shown as a seventh bar. Time spent in ``before_decision`` and
     ``after_decision`` is the tick's ``think_ms``.
     """
 
@@ -72,6 +75,7 @@ class Hooks:
     extra_questions: Callable[[Observation, int], dict[str, Any] | None] | None = None
     after_decision: Callable[[Observation, int, Decision], Directive | None] | None = None
     tick_extras: Callable[[], dict[str, Any]] | None = None
+    offer_plan: Callable[[Observation, int], bool] | None = None
 
 
 def _ms(a: float, b: float) -> float:
@@ -141,6 +145,7 @@ def run_episode(
                     if first and hooks.extra_questions
                     else None
                 )
+                plan_option = bool(first and hooks.offer_plan and hooks.offer_plan(obs, obs.tick))
                 built = build_request(
                     obs,
                     mode=mode,
@@ -150,6 +155,7 @@ def run_episode(
                     legal_only=legal_only,
                     label_style=label_style,
                     extra_questions=questions,
+                    plan_option=plan_option,
                 )
                 tc = time.perf_counter()
                 spent["render_ms"] += _ms(ta, tc)
@@ -158,6 +164,7 @@ def run_episode(
                 return built, decision
 
             built, decision = ask(True)
+            plan_p = decision.plan_p
             spent["render_ms"] -= spent["think_ms"]
             directive = None
             if hooks.after_decision:
@@ -186,6 +193,7 @@ def run_episode(
                 after=result.observation,
                 offered=built.offered,
                 pause_p=extras.get("pause_p"),
+                plan_p=plan_p,
                 plan=extras.get("plan"),
             )
             ticks.append(log)
@@ -199,6 +207,7 @@ def run_episode(
                     decision.usage,
                     built.offered,
                     pause_p=extras.get("pause_p"),
+                    plan_p=plan_p,
                     plan=extras["plan"].model_dump() if extras.get("plan") else None,
                 )
             memory.observe(obs, built.text, action, result.observation)
@@ -206,7 +215,10 @@ def run_episode(
                 hooks.after_tick(log)
             open_ = True
             if view is not None:
-                open_ = view.update(obs, decision.probabilities, action, best, timing)
+                shown: dict[Any, float] = dict(decision.probabilities)
+                if plan_p is not None:
+                    shown[PLAN_OPTION] = plan_p
+                open_ = view.update(obs, shown, action, best, timing)
             obs = result.observation
             if result.done:
                 reason, reward = result.info["reason"], result.reward

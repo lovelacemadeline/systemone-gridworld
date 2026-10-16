@@ -15,6 +15,13 @@ Triggers (``--think``):
   P(yes) is recorded every tick; when it is at least ``threshold`` and at least
   ``cooldown`` ticks have passed since the last plan, a plan is made.
 
+- ``action`` (story 5.7): no second question; the action question itself
+  gains a seventh option ``plan`` (and the rules prefix one sentence about
+  it). P(plan) is recorded on every tick that offered it. Choosing ``plan``
+  makes a plan (reason ``action``) and then, per the cost, re-asks the action
+  question without ``plan`` on the same tick or spends the turn as ``wait``.
+  During the cooldown ``plan`` is not offered (and no P(plan) is recorded).
+
 - ``rule`` (story 5.6): the harness decides, before the decision, from what
   it can see: ``replan_every`` N (ticks 0, N, 2N, ...: reason ``interval``),
   ``replan_on_damage`` (hp lower than the previous tick: ``damage``),
@@ -47,7 +54,7 @@ from .plan import DEFAULT_PLAN_MAX_TOKENS, Planner, PlanResult, PlanStyle
 
 __all__ = ["PAUSE_INSTRUCTIONS", "PAUSE_QUESTION", "Cost", "SystemTwo", "ThinkConfig", "Trigger"]
 
-Trigger = Literal["never", "start", "demand", "rule"]
+Trigger = Literal["never", "start", "demand", "action", "rule"]
 Cost = Literal["free", "tick"]
 
 RECENT = 5
@@ -88,6 +95,7 @@ class SystemTwo:
         self.plan_text: str | None = None
         self.plans: list[tuple[int, PlanResult]] = []
         self.pause_p: list[float] = []
+        self.plan_p: list[float] = []
         self._tick: dict[str, Any] = {}
         self._planned_tick: int | None = None
         self._recent: list[tuple[str, tuple[int, int]]] = []
@@ -100,7 +108,11 @@ class SystemTwo:
     def context_line(self, obs: Observation, reason: str) -> str:
         """The plan prompt's context: recent moves, hp, and why a plan is wanted now."""
         recent = ", ".join(f"{a}->({x},{y})" for a, (x, y) in self._recent[-RECENT:]) or "none"
-        why = {"start": "start of the episode", "demand": "you asked to pause and plan"}
+        why = {
+            "start": "start of the episode",
+            "demand": "you asked to pause and plan",
+            "action": "you chose to plan",
+        }
         reasons = ", ".join(
             {
                 "interval": "scheduled refresh",
@@ -158,6 +170,10 @@ class SystemTwo:
             return None
         return {PAUSE_QUESTION: {"type": "noul", "instructions": PAUSE_INSTRUCTIONS}}
 
+    def offer_plan(self, obs: Observation, tick: int) -> bool:
+        """``--think action``: offer the ``plan`` option unless cooling down."""
+        return self.config.trigger == "action" and self._cooled(tick)
+
     def _cooled(self, tick: int) -> bool:
         last = self.plans[-1][0] if self.plans else None
         return last is None or tick - last >= self.config.cooldown
@@ -172,11 +188,16 @@ class SystemTwo:
                 self._tick["pause_p"] = float(p)
                 if p >= cfg.threshold and self._cooled(tick):
                     self._plan(obs, "demand")
+        elif cfg.trigger == "action":
+            if decision.plan_p is not None:
+                self.plan_p.append(decision.plan_p)
+            if decision.chose_plan:
+                self._plan(obs, "action")
         if self._planned_tick != tick:
             return None
         if cfg.cost == "tick":
             return Directive(action=Action.WAIT)
-        if cfg.trigger == "demand":
+        if cfg.trigger in ("demand", "action"):
             return Directive(redecide=True)
         return None
 
@@ -208,4 +229,5 @@ class SystemTwo:
             after_decision=self.after_decision,
             tick_extras=self.tick_extras,
             after_tick=_after,
+            offer_plan=self.offer_plan,
         )

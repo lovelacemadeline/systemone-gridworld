@@ -28,7 +28,7 @@ from ..sim import GridWorld, WorldConfig
 from .loop import Hooks, run_episode
 from .memory import make_memory
 from .plan import Planner
-from .prompts import DEFAULT_PREFIX
+from .prompts import DEFAULT_PREFIX, with_plan_option
 from .provenance import power_state
 from .report import RunMeta, RunReport, build_report, prefix_digest, run_name, write_report
 from .score import EpisodeSummary, summarize_run
@@ -95,6 +95,11 @@ def run_session(
     thinking = think is not None and think.trigger != "never"
     if thinking and planner is None:
         raise ValueError("a think trigger needs a planner")
+    # Story 5.7: under --think action the decider's prefix describes the plan
+    # option; the planner keeps the plain rules.
+    plan_prefix = prefix
+    if thinking and think.trigger == "action":
+        prefix = with_plan_option(prefix)
     name = run_name(
         backend.id,
         mode,
@@ -143,7 +148,7 @@ def run_session(
                 view.info_lines = session_lines(eps)
             episode_hooks = hooks
             if thinking:
-                two = SystemTwo(planner, think, prefix, view=view)
+                two = SystemTwo(planner, think, plan_prefix, view=view)
                 episode_hooks = two.hooks(after_tick=hooks.after_tick if hooks else None)
                 if view is not None and hasattr(view, "set_plan"):
                     view.set_plan(None, None, False, reset=True)

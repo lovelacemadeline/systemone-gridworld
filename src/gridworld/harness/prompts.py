@@ -3,13 +3,17 @@
 It is identical on every tick, so a backend with prefix caching (the golden
 server, :class:`~gridworld.backends.local.LocalBackend`) prefills it once.
 ``gridworld play --prefix FILE`` replaces it; :func:`load_prefix` reads that.
+
+Under ``--think action`` (story 5.7) :func:`with_plan_option` appends
+:data:`PLAN_OPTION_SENTENCE` to whichever prefix is in use; no other mode
+changes the prefix.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-__all__ = ["DEFAULT_PREFIX", "load_prefix"]
+__all__ = ["DEFAULT_PREFIX", "PLAN_OPTION_SENTENCE", "load_prefix", "with_plan_option"]
 
 DEFAULT_PREFIX = """\
 You are playing a turn-based grid game, one decision per turn.
@@ -37,3 +41,14 @@ def load_prefix(path: str | Path | None) -> str:
     if path is None:
         return DEFAULT_PREFIX
     return Path(path).read_text(encoding="utf-8").rstrip()
+
+
+PLAN_OPTION_SENTENCE = (
+    "You may also answer plan to pause and make a short plan first; you then choose "
+    "your action with the plan in view."
+)
+
+
+def with_plan_option(prefix: str) -> str:
+    """``prefix`` plus the sentence describing the ``plan`` option (``--think action``)."""
+    return f"{prefix}\n\n{PLAN_OPTION_SENTENCE}"

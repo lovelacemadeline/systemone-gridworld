@@ -5,7 +5,11 @@ backend cannot mutate the caller's request), measures wall time, validates the
 response, then checks the parts the schema cannot express: the ``action``
 answer exists, is a ``choice``, picks one of the offered actions (the
 question's ``criteria``; all six unless the request is legal-only), and gives a
-probability for each of them. Any failure raises :class:`SchemaError` or
+probability for each of them. Under ``--think action`` (story 5.7) the
+criteria also hold :data:`~gridworld.backends.request.PLAN_OPTION`: its
+probability is ``Decision.plan_p`` (not in ``probabilities``), and when it is
+the choice, ``Decision.chose_plan`` is set and ``action`` is the most likely
+real action (what a caller that ignores the request to plan would step). Any failure raises :class:`SchemaError` or
 :class:`BackendError` — a drifting backend fails loudly, never silently.
 """
 
@@ -19,7 +23,7 @@ from pydantic import BaseModel, ConfigDict
 
 from ..sim import Action
 from .base import Backend
-from .request import QUESTION
+from .request import PLAN_OPTION, QUESTION
 from .schema import validate_request, validate_response
 
 __all__ = ["BackendError", "Decision", "call"]
@@ -32,7 +36,8 @@ class BackendError(ValueError):
 class Decision(BaseModel):
     """One answered tick: what to step, how sure, what it cost.
 
-    ``probabilities`` covers the offered actions only (all six by default).
+    ``probabilities`` covers the offered actions only (all six by default);
+    ``plan_p`` is P(plan) when the plan option was offered (story 5.7).
     """
 
     model_config = ConfigDict(frozen=True)
@@ -45,6 +50,8 @@ class Decision(BaseModel):
     timing_ms: dict[str, float] | None
     wall_ms: float
     response: dict[str, Any]
+    plan_p: float | None = None
+    chose_plan: bool = False
 
 
 def call(backend: Backend, request: dict[str, Any], *, question: str = QUESTION) -> Decision:
@@ -67,10 +74,20 @@ def call(backend: Backend, request: dict[str, Any], *, question: str = QUESTION)
     probs = answer["probabilities"]
     if sorted(probs) != sorted(names):
         raise BackendError(f"{backend.id}: probabilities cover {sorted(probs)}, expected {names}")
+    actions = [k for k in names if k != PLAN_OPTION]
+    probabilities = {Action(k): float(probs[k]) for k in actions}
+    chose_plan = answer["choice"] == PLAN_OPTION
+    action = (
+        max(probabilities, key=probabilities.__getitem__)
+        if chose_plan
+        else Action(answer["choice"])
+    )
     return Decision(
         backend=backend.id,
-        action=Action(answer["choice"]),
-        probabilities={Action(k): float(probs[k]) for k in names},
+        action=action,
+        probabilities=probabilities,
+        plan_p=float(probs[PLAN_OPTION]) if PLAN_OPTION in names else None,
+        chose_plan=chose_plan,
         confidence=float(answer["confidence"]),
         usage=dict(response["usage"]),
         timing_ms=response.get("timing_ms"),
