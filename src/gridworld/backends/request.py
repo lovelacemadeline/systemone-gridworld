@@ -93,6 +93,7 @@ def build_request(
     options: dict[str, Any] | None = None,
     legal_only: bool = False,
     label_style: str | None = None,
+    extra_questions: dict[str, Any] | None = None,
     tile: int = 16,
 ) -> BuiltRequest:
     """Build the one-question ``choice`` request for ``obs`` in ``mode``.
@@ -101,6 +102,8 @@ def build_request(
     off by default so the baseline sees all six). ``label_style`` sets
     ``options.label_style`` (v1 schema since golden 22f4d22); ``None`` or
     ``"letters"`` leaves it out, which is the upstream default.
+    ``extra_questions`` are added after ``action`` (System Two's
+    ``pause_to_plan`` noul, story 5.2).
     """
     text = to_text(obs)
     if memory_tail:
@@ -126,7 +129,8 @@ def build_request(
                 "type": "choice",
                 "instructions": "Which action next?",
                 "criteria": {a.value: ACTION_CRITERIA[a.value] for a in offered},
-            }
+            },
+            **(extra_questions or {}),
         },
     }
     options = dict(options or {})

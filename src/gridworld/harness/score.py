@@ -25,6 +25,7 @@ Definitions (all computed from the per-tick :class:`TickLog` list):
 from __future__ import annotations
 
 from statistics import fmean
+from typing import Any
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict
@@ -57,6 +58,8 @@ class TickLog(BaseModel):
     timing: dict[str, float]
     after: Observation
     offered: tuple[Action, ...] = tuple(Action)
+    pause_p: float | None = None
+    plan: Any = None  # harness.plan.PlanResult when System Two planned on this tick
 
 
 class EpisodeSummary(BaseModel):

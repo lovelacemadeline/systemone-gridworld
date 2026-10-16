@@ -32,7 +32,7 @@ import subprocess
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from types import TracebackType
-from typing import Literal, Self
+from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
@@ -85,6 +85,9 @@ class TickRecord(BaseModel):
     timing: dict[str, float] | None = None
     usage: dict[str, int] | None = None
     offered: tuple[Action, ...] | None = None
+    #: System Two (Epic 5): P(yes) of the pause_to_plan question, and the plan made here.
+    pause_p: float | None = None
+    plan: dict[str, Any] | None = None
 
 
 class EpisodeEnd(BaseModel):
@@ -152,6 +155,9 @@ class EpisodeRecorder:
         timing: dict[str, float] | None = None,
         usage: dict[str, int] | None = None,
         offered: tuple[Action, ...] | None = None,
+        *,
+        pause_p: float | None = None,
+        plan: dict[str, Any] | None = None,
     ) -> None:
         """Record the decision taken from ``observation``."""
         self._write(
@@ -163,6 +169,8 @@ class EpisodeRecorder:
                 timing=timing,
                 usage=usage,
                 offered=offered,
+                pause_p=pause_p,
+                plan=plan,
             )
         )
 

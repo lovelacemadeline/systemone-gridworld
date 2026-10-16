@@ -16,6 +16,7 @@ decisions/s over the session.
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -26,10 +27,12 @@ from ..record import git_rev
 from ..sim import GridWorld, WorldConfig
 from .loop import Hooks, run_episode
 from .memory import make_memory
+from .plan import Planner
 from .prompts import DEFAULT_PREFIX
 from .provenance import power_state
 from .report import RunMeta, RunReport, build_report, prefix_digest, run_name, write_report
 from .score import EpisodeSummary, summarize_run
+from .think import SystemTwo, ThinkConfig
 
 __all__ = ["FLASH", "SessionResult", "run_session", "session_lines"]
 
@@ -81,11 +84,23 @@ def run_session(
     flash_s: float = 1.0,
     legal_only: bool = False,
     labels: str = "letters",
+    think: ThinkConfig | None = None,
+    planner: Planner | None = None,
 ) -> SessionResult:
     """Play a session and write its report (see the module docstring)."""
     world = GridWorld(config)
     rev = git_rev()
-    name = run_name(backend.id, mode, memory, legal_only=legal_only, labels=labels)
+    thinking = think is not None and think.trigger != "never"
+    if thinking and planner is None:
+        raise ValueError("a think trigger needs a planner")
+    name = run_name(
+        backend.id,
+        mode,
+        memory,
+        legal_only=legal_only,
+        labels=labels,
+        think=think if thinking else None,
+    )
     label_style = {"letters": None, "words": "option-text"}[labels]
     out = Path(out_dir)
     episode_dir = out / name
@@ -102,6 +117,7 @@ def run_session(
             memory=memory,
             legal_only=legal_only,
             labels=labels,
+            think=asdict(think) if thinking else None,
             git_rev=rev,
             power=power_state(),
             config=world.config,
@@ -117,6 +133,12 @@ def run_session(
         while episodes == 0 or i < episodes:
             if view is not None:
                 view.info_lines = session_lines(eps)
+            episode_hooks = hooks
+            if thinking:
+                two = SystemTwo(planner, think, prefix, view=view)
+                episode_hooks = two.hooks(after_tick=hooks.after_tick if hooks else None)
+                if view is not None and hasattr(view, "set_plan"):
+                    view.set_plan(None, None, False, reset=True)
             s = run_episode(
                 world,
                 backend,
@@ -126,7 +148,7 @@ def run_session(
                 memory=make_memory(memory),
                 record_path=episode_dir / f"seed-{seed + i:04d}.jsonl",
                 view=view,
-                hooks=hooks,
+                hooks=episode_hooks,
                 max_ticks=max_ticks,
                 rev=rev,
                 legal_only=legal_only,

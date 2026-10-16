@@ -14,7 +14,7 @@ from gridworld.harness.prompts import DEFAULT_PREFIX, load_prefix
 from gridworld.record import read_episode, replay
 from gridworld.sim import GridWorld
 
-PHASES = {"render_ms", "backend_ms", "step_ms", "total_ms"}
+PHASES = {"render_ms", "backend_ms", "think_ms", "step_ms", "total_ms"}
 
 
 def test_fake_episode_records_one_line_per_tick_and_terminates(tmp_path):

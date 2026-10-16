@@ -78,13 +78,13 @@ epics:
         status: completed
   - epic: 5
     title: System Two — let the model choose to pause and plan
-    status: pending
+    status: in-progress
     story_home: docs/stories/
     stories_count: 4
     stories:
       - id: "5.1"
         title: Plan call over the chat route and plan injection into the memory tail
-        status: pending
+        status: completed
       - id: "5.2"
         title: Triggers — never, at start, on demand via a second noul question
         status: pending

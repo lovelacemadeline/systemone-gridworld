@@ -59,6 +59,20 @@ def _backend(args: argparse.Namespace):
     return make_backend("http", base_url=args.url, timeout=args.timeout)
 
 
+def _think_kwargs(args: argparse.Namespace) -> dict:
+    return {"trigger": args.think, "style": args.plan, "max_tokens": args.plan_max_tokens}
+
+
+def _planner(args: argparse.Namespace, backend):
+    from .harness.plan import FakePlanner, HTTPPlanner, LocalPlanner
+
+    if args.backend == "local":
+        return LocalPlanner.from_backend(backend)
+    if args.backend == "http":
+        return HTTPPlanner(args.url)
+    return FakePlanner()
+
+
 def _play(args: argparse.Namespace) -> int:
     from .harness.prompts import load_prefix
     from .harness.report import headline_table
@@ -84,6 +98,10 @@ def _play(args: argparse.Namespace) -> int:
         tick_limit=args.tick_limit or defaults.tick_limit,
     )
     backend = _backend(args)
+    from .harness.think import ThinkConfig
+
+    think = ThinkConfig(**_think_kwargs(args))
+    planner = _planner(args, backend) if think.trigger != "never" else None
     try:
         result = run_session(
             backend,
@@ -99,6 +117,8 @@ def _play(args: argparse.Namespace) -> int:
             flash_s=args.flash,
             legal_only=args.legal_only,
             labels=args.labels,
+            think=think,
+            planner=planner,
         )
     finally:
         if view is not None:
@@ -145,6 +165,10 @@ def build_parser() -> argparse.ArgumentParser:
     play.add_argument("--fps", type=float, default=0.0, help="cap ticks per second in the view")
     play.add_argument("--scale", type=int, default=3)
     play.add_argument("--flash", type=float, default=1.0, help="seconds to show each result")
+    two = play.add_argument_group("System Two (Epic 5)")
+    two.add_argument("--think", choices=["never", "start"], default="never")
+    two.add_argument("--plan", choices=["direct", "trace"], default="direct")
+    two.add_argument("--plan-max-tokens", type=int, default=4096)
     world = play.add_argument_group("world (defaults: WorldConfig)")
     world.add_argument("--width", type=int)
     world.add_argument("--height", type=int)

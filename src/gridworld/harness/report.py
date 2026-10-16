@@ -38,6 +38,8 @@ class RunMeta(BaseModel):
     memory: str
     legal_only: bool = False
     labels: str = "letters"
+    #: System Two settings (trigger, style, max_tokens, ...) or None when not thinking.
+    think: dict[str, Any] | None = None
     git_rev: str | None
     power: dict[str, Any]
     config: WorldConfig
@@ -72,9 +74,13 @@ def run_name(
     *,
     legal_only: bool = False,
     labels: str = "letters",
+    think: Any = None,
 ) -> str:
-    """``<stamp>-<backend>-<mode>-<memory>``, plus ``-legal`` / ``-<labels>`` when not default."""
+    """``<stamp>-<backend>-<mode>-<memory>``, plus ``-legal`` / ``-<labels>`` /
+    ``-think-<trigger>-<style>`` when not default."""
     extra = ("-legal" if legal_only else "") + ("" if labels == "letters" else f"-{labels}")
+    if think is not None:
+        extra += f"-think-{think.trigger}-{think.style}"
     return f"{stamp or utc_stamp()}-{_slug(backend)}-{mode}-{memory}{extra}"
 
 
@@ -140,6 +146,7 @@ def to_markdown(report: RunReport) -> str:
             f"legal-only: {'on' if m.legal_only else 'off'}"
         ),
         f"- git rev: {m.git_rev or '-'}; power: {power}",
+        "- think: " + (", ".join(f"{k} {v}" for k, v in m.think.items()) if m.think else "never"),
         (
             f"- map: {m.config.width}x{m.config.height}, {m.config.n_monsters} monsters, "
             f"tick limit {m.config.tick_limit}"

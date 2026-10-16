@@ -9,7 +9,9 @@ Probabilities look like a model's: the chosen action gets a seeded draw in
 [0.6, 0.95]; the other five share the remainder equally. ``usage`` estimates
 ``input_tokens`` as ``len(prefix + state text) // 4``, ``output_tokens`` 0.
 ``timing_ms.total`` reports exactly ``latency_s`` (the call sleeps that long),
-so timing tests are deterministic. With ``prefix_cache=True`` it simulates a
+so timing tests are deterministic. ``noul`` questions are answered with
+``noul`` (a constant P(yes), or ``f(observation, question_name)``; default
+0.1), which is how tests script System Two's pause_to_plan (story 5.2). With ``prefix_cache=True`` it simulates a
 delta prefix cache (what story 4.4's transcript mode needs from a real
 server): ``cached_tokens`` is the common character prefix with the previous
 request's ``prefix`` plus joined text, // 4, and ``input_tokens`` the rest,
@@ -22,10 +24,12 @@ from __future__ import annotations
 import os
 import random
 import time
+from collections.abc import Callable
 from typing import Any
 
 from ..oracle import oracle
 from ..render.text import parse_text
+from ..sim import Observation
 
 __all__ = ["FakeBackend"]
 
@@ -44,8 +48,14 @@ class FakeBackend:
     """Oracle-plus-noise backend; ``noise=0`` agrees with the oracle on every tick."""
 
     def __init__(
-        self, noise: float = 0.0, latency_s: float = 0.0, seed: int = 0, prefix_cache: bool = False
+        self,
+        noise: float = 0.0,
+        latency_s: float = 0.0,
+        seed: int = 0,
+        prefix_cache: bool = False,
+        noul: Callable[[Observation, str], float] | float = 0.1,
     ) -> None:
+        self.noul = noul
         if not 0.0 <= noise <= 1.0:
             raise ValueError("noise must be in [0, 1]")
         self.noise, self.latency_s, self.prefix_cache = noise, latency_s, prefix_cache
@@ -55,9 +65,14 @@ class FakeBackend:
 
     def decide(self, request: dict[str, Any]) -> dict[str, Any]:
         text = _state_text(request["state"])
-        best = oracle(parse_text(text))
+        obs = parse_text(text)
+        best = oracle(obs)
         answers = {}
         for name, question in request["questions"].items():
+            if question["type"] == "noul":
+                p = self.noul(obs, name) if callable(self.noul) else self.noul
+                answers[name] = {"type": "noul", "noul": float(p)}
+                continue
             if question["type"] != "choice":
                 continue
             options = list(question["criteria"])
