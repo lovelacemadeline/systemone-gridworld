@@ -25,6 +25,12 @@ The vendored response has no encoder field, so the tower time the runner logs
 for this decision (``vision_encode_ms``) is added to the response as
 ``timing_ms.encoder`` (``timing_ms`` is open in v1); 0 when every image was
 memoised, absent for text-only requests.
+
+**Soft-token budget** (follow-up on story 3.5, golden story 6.7): ``vision_tokens``
+(``play --vision-tokens 70|140|280``) loads the runner with that budget per image
+(``MLXRunner.vision_soft_tokens``): a 160 x 192 frame becomes 63 / 120 / 270 soft
+tokens from 567 / 1080 / 2430 encoder patches. None keeps the checkpoint's 280. The
+backend id gains ``:vt<N>`` so run reports say which budget played.
 """
 
 from __future__ import annotations
@@ -92,19 +98,30 @@ class LocalBackend:
         calibration: Any = None,
         runner: Any = None,
         prefix_cache_size: int = 8,
+        vision_tokens: int | None = None,
     ) -> None:
         decide, CalibrationConfig, default_path, SystemOneRequest = _import()
         self._decide, self._request_cls = decide, SystemOneRequest
         if runner is None:
             from mlx_classifiers.mlx_runner import MLXRunner
 
-            runner = MLXRunner.load(model, int8=int8)
+            kw = {"vision_soft_tokens": vision_tokens} if vision_tokens is not None else {}
+            runner = MLXRunner.load(model, int8=int8, **kw)
+        elif vision_tokens is not None and getattr(runner, "image_tokens", None) is not None:
+            from dataclasses import replace
+
+            runner.image_tokens = replace(runner.image_tokens, max_soft_tokens=vision_tokens)
         if calibration is None or isinstance(calibration, (str, Path)):
             calibration = CalibrationConfig.load_or_empty(calibration or default_path())
         self.calibration = calibration
         self.runner = _PrefixMemo(runner, prefix_cache_size)
         self.model_id: str = runner.model_id
-        self.id = f"local:{self.model_id}" + (":int8" if int8 else "")
+        self.vision_tokens = vision_tokens
+        self.id = (
+            f"local:{self.model_id}"
+            + (":int8" if int8 else "")
+            + (f":vt{vision_tokens}" if vision_tokens is not None else "")
+        )
 
     def _label_style_supported(self) -> bool:
         from mlx_classifiers.schema import RequestOptions

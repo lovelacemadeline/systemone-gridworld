@@ -115,6 +115,47 @@ def test_registry_passes_kwargs_through():
     assert b.id == "local:fake"
 
 
+class _Recorder(FakeRunner):
+    """FakeRunner that records each prefill's image slots."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.slots = []
+
+    def prefill(self, tokens, prefix_cache=None, positions=None, **kw):
+        self.slots.extend(kw.get("images") or ())
+        return super().prefill(tokens, prefix_cache, positions, **kw)
+
+
+@pytest.mark.parametrize(("budget", "tokens"), [(None, 270), (140, 120), (70, 63)])
+def test_vision_tokens_sets_the_frame_budget_and_names_the_backend(budget, tokens):
+    """Follow-up on 3.5 (golden 6.7): the budget reaches the runner, a 160 x 192
+    frame compiles to its soft-token count, and the backend id says which ran."""
+    from mlx_classifiers.images import ImageTokens
+
+    if "max_soft_tokens" not in ImageTokens.__dataclass_fields__:
+        pytest.skip("mlx-classifiers predates the soft-token budget")
+    runner = _Recorder()
+    backend = LocalBackend(runner=runner, calibration=CalibrationConfig(), vision_tokens=budget)
+    validate_response(backend.decide(build_request(generate_map(3), mode="image").request))
+    assert runner.slots and {s.length for s in runner.slots} == {tokens}
+    assert backend.id == "local:fake" + (f":vt{budget}" if budget else "")
+
+
+def test_play_vision_tokens_flag_reaches_the_local_backend(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(
+        "gridworld.backends.make_backend", lambda name, **kw: seen.update(kw) or object()
+    )
+    args = cli.build_parser().parse_args(
+        ["play", "--backend", "local", "--mode", "image", "--vision-tokens", "140"]
+    )
+    cli._backend(args)
+    assert seen["vision_tokens"] == 140
+    with pytest.raises(SystemExit):
+        cli.build_parser().parse_args(["play", "--vision-tokens", "100"])
+
+
 def _weights_cached(repo: str) -> bool:
     snaps = HF_HUB / f"models--{repo.replace('/', '--')}" / "snapshots"
     return any((s / "config.json").exists() for s in snaps.glob("*")) if snaps.exists() else False

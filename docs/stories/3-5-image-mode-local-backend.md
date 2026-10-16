@@ -21,6 +21,8 @@ anchor:
   - test: "tests/test_backend_schema.py::test_image_request_carries_text_and_png_block"
   - test: "tests/test_backend_schema.py::test_image_only_drops_the_text_view_but_keeps_the_memory_tail"
   - test: "tests/test_backend_schema.py::test_malformed_image_blocks_fail_the_vendored_schema"
+  - test: "tests/test_local_backend.py::test_vision_tokens_sets_the_frame_budget_and_names_the_backend"
+  - test: "tests/test_local_backend.py::test_play_vision_tokens_flag_reaches_the_local_backend"
 ---
 
 # Story 3.5 — Image mode through the local backend
@@ -84,6 +86,31 @@ back-and-forth rut. It still ruts for a while there (62 reversals), but gets
 out. From pixels alone the 26B wins 2 of 5. It costs about 5.5x the text
 run's wall time per decision (1.29 s against 0.24 s p50). The encoder is
 about 0.7 to 0.8 s of that, as the golden 6.3 bench measured.
+
+## Follow-up: `--vision-tokens` (golden story 6.7, 2026-10-16)
+
+`play --vision-tokens 70|140|280` (local backend only) loads the runner with
+that soft-token budget per image (`LocalBackend(vision_tokens=N)` →
+`MLXRunner.vision_soft_tokens`). A frame becomes 63 / 120 / 270 soft tokens
+from 567 / 1080 / 2430 encoder patches. Omitted, it keeps the checkpoint's
+280. The backend id gains `:vt<N>`, so run names and reports say which budget
+played. With an injected runner, the budget is set on its `image_tokens`.
+
+The same text + image command as the runs above, `--vision-tokens N`, golden
+1b7dcd3, low power mode off, AC power; run dirs under `runs/story-3-5-vt/`:
+
+| budget | seed 0 | seed 1 | seed 2 | seed 3 | seed 4 | reversals / ep | p50 ms | p50 encoder ms | decisions/s | vm swapouts |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 280 | won 15, 1 | won 13, 0 | won 13, 0 | won 14, 0 | won 99, 62 | 12.6 | 1442 | 766 | 0.64 | 109k |
+| 140 | won 13, 0 | won 36, 23 | won 15, 2 | won 14, 0 | won 39, 23 | 9.6 | 666 | 221 | 1.46 | 11k |
+| 70 | won 13, 0 | won 11, 0 | won 17, 0 | won 14, 0 | timeout 200, 129 | 25.8 | 633 | 141 | 1.55 | 151k |
+
+The 280 row reproduces the text + image row above seed for seed. Its timings
+are swamped by swap (the earlier run measured 1.29 s p50). 140 keeps 5/5 at
+2.3x the decisions/s. 70 loses seed 4. The golden library keeps 280 as its
+default: on its 30-frame battery the 26B reads frames worse at 140 (text +
+image 0.300 → 0.067 under INT8). So 140 is a measured opt-in, not a new
+default.
 
 ## Acceptance Criteria
 - **Given** `--backend local --mode image` **when** one tick runs **then** the

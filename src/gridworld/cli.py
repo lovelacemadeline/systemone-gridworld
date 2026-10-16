@@ -56,6 +56,8 @@ def _backend(args: argparse.Namespace):
         kw = {"int8": args.int8}
         if args.model:
             kw["model"] = args.model
+        if args.vision_tokens is not None:
+            kw["vision_tokens"] = args.vision_tokens
         return make_backend("local", **kw)
     return make_backend("http", base_url=args.url, timeout=args.timeout)
 
@@ -313,6 +315,13 @@ def build_parser() -> argparse.ArgumentParser:
     be.add_argument("--latency", type=float, default=0.0, help="fake: seconds per call")
     be.add_argument("--model", default=None, help="local: mlx-lm repo")
     be.add_argument("--int8", action="store_true", help="local: W8A8 kernels (M5 only)")
+    be.add_argument(
+        "--vision-tokens",
+        type=int,
+        choices=(70, 140, 280),
+        default=None,
+        help="local: soft-token budget per image (default: the checkpoint's 280)",
+    )
     be.add_argument("--url", default="http://127.0.0.1:8080", help="http: server base URL")
     be.add_argument("--timeout", type=float, default=30.0, help="http: seconds")
     play.set_defaults(func=_play)
