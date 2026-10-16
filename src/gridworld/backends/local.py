@@ -112,7 +112,7 @@ class LocalBackend:
         if style is not None and not self._label_style_supported():
             raise NotImplementedError(
                 f"local backend: options.label_style={style!r} needs an mlx-classifiers with "
-                "label_style support (pending upstream); use --labels letters"
+                "label_style support (golden commit 22f4d22 or later); use --labels letters"
             )
         req = self._request_cls.model_validate(request)
         temperature = self.calibration.temperature(self.model_id, req.effective_options.readout)

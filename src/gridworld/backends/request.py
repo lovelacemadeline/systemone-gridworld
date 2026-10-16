@@ -99,7 +99,7 @@ def build_request(
 
     ``legal_only`` offers only :func:`~gridworld.sim.legal_actions` (story 4.5;
     off by default so the baseline sees all six). ``label_style`` sets
-    ``options.label_style`` (a pending-upstream local extension); ``None`` or
+    ``options.label_style`` (v1 schema since golden 22f4d22); ``None`` or
     ``"letters"`` leaves it out, which is the upstream default.
     """
     text = to_text(obs)

@@ -55,11 +55,11 @@ def test_legal_only_request_offers_the_legal_set_on_the_vendored_schema(make_obs
     assert build_request(obs).offered == tuple(Action)
 
 
-def test_label_style_words_needs_the_local_extension():
+def test_label_style_words_validates_on_the_vendored_schema():
     built = build_request(generate_map(3), label_style="option-text")
     assert built.request["options"] == {"label_style": "option-text"}
     validate_request(built.request)
-    assert not Draft202012Validator(load_schema("request")).is_valid(built.request)
+    assert Draft202012Validator(load_schema("request")).is_valid(built.request)
     assert "options" not in build_request(generate_map(3), label_style="letters").request
     bad = build_request(generate_map(3)).request | {"options": {"label_style": "emoji"}}
     with pytest.raises(ValueError, match="label_style"):
@@ -129,12 +129,14 @@ def test_local_backend_refuses_label_style_until_upstream_supports_it():
         backend.decide(build_request(generate_map(3), label_style="option-text").request)
 
 
-@pytest.mark.xfail(strict=True, reason="re-vendor pending: upstream schema lacks label_style")
 def test_vendored_schema_defines_label_style():
-    """Target anchor (story 4.5): passes once schema/ is re-vendored with label_style.
-
-    Strict xfail, so the re-vendor turns this into a failure until the local
-    label_style extension (backends/schema.py, schema/local-extensions.md) is
-    removed along with this marker.
-    """
+    """Story 4.5's former target anchor: the re-vendored schema owns label_style,
+    so the local extension carries image blocks only."""
     assert "label_style" in load_schema("request")["$defs"]["RequestOptions"]["properties"]
+    from gridworld.backends.schema import extended_request_schema, uses_local_extensions
+
+    ext = extended_request_schema()["$defs"]["RequestOptions"]
+    assert ext == load_schema("request")["$defs"]["RequestOptions"]
+    assert not uses_local_extensions(
+        build_request(generate_map(3), label_style="option-text").request
+    )

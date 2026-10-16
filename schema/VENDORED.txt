@@ -1,1 +1,1 @@
-Vendored from https://github.com/lovelacemadeline/mlx-lm-as-classifiers/tree/main/schema at commit f878a9d on 2026-10-16. Do not edit; re-vendor and bump this note.
+Vendored from https://github.com/lovelacemadeline/mlx-lm-as-classifiers/tree/main/schema at commit 1e727aa (schema last changed in 22f4d22, options.label_style) on 2026-10-16. Do not edit; re-vendor and bump this note.

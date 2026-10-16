@@ -57,7 +57,7 @@ epics:
         status: completed
   - epic: 4
     title: Harness, scoring and reports
-    status: in-progress
+    status: completed
     story_home: docs/stories/
     stories_count: 5
     stories:
@@ -75,7 +75,7 @@ epics:
         status: completed
       - id: "4.5"
         title: Legal-action mask and label style
-        status: in-progress
+        status: completed
   - epic: 5
     title: System Two — let the model choose to pause and plan
     status: pending
