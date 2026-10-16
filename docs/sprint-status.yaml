@@ -30,7 +30,7 @@ epics:
         status: completed
       - id: "2.2"
         title: Image renderer and the shared tile code
-        status: pending
+        status: completed
       - id: "2.3"
         title: Lossless round-trip test between text, image and observation
         status: pending
