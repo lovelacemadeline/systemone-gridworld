@@ -10,7 +10,8 @@ One tick of :func:`run_episode`:
 4. **step**: the chosen action is stepped (or a hook's override);
 5. the tick is recorded (observation, action, probabilities, oracle action,
    usage, timing ``{render_ms, backend_ms, think_ms, step_ms, total_ms}``, and
-   System Two's ``plan`` / ``pause_p`` / ``plan_p`` when present), the memory is told what
+   System Two's ``plan`` / ``pause_p`` / ``plan_p`` / ``route_remaining`` /
+   ``plan_dropped`` when present), the memory is told what
    happened, and the live view (if any) is updated.
 
 The episode ends when the sim ends it, when ``max_ticks`` is reached
@@ -195,6 +196,8 @@ def run_episode(
                 pause_p=extras.get("pause_p"),
                 plan_p=plan_p,
                 plan=extras.get("plan"),
+                route_remaining=extras.get("route_remaining"),
+                plan_dropped=extras.get("plan_dropped"),
             )
             ticks.append(log)
             if rec is not None:
@@ -209,6 +212,8 @@ def run_episode(
                     pause_p=extras.get("pause_p"),
                     plan_p=plan_p,
                     plan=extras["plan"].model_dump() if extras.get("plan") else None,
+                    route_remaining=extras.get("route_remaining"),
+                    plan_dropped=extras.get("plan_dropped"),
                 )
             memory.observe(obs, built.text, action, result.observation)
             if hooks.after_tick:

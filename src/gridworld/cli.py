@@ -70,6 +70,8 @@ def _think_kwargs(args: argparse.Namespace) -> dict:
         "replan_every": args.replan_every,
         "replan_on_damage": args.replan_on_damage,
         "replan_on_reversals": args.replan_on_reversals,
+        "plan_persist": args.plan_persist,
+        "route_deviation_limit": args.route_deviation_limit,
     }
 
 
@@ -237,6 +239,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="free: plan before acting; tick: planning spends the turn as wait",
     )
     two.add_argument("--plan", choices=["direct", "trace"], default="direct")
+    two.add_argument(
+        "--plan-persist",
+        action="store_true",
+        help="keep the whole plan in the tail until replaced (pre-5.8; default: consume the route)",
+    )
+    two.add_argument(
+        "--route-deviation-limit",
+        type=int,
+        default=2,
+        help="drop the plan after this many consecutive moves off its route",
+    )
     two.add_argument("--plan-max-tokens", type=int, default=4096)
     two.add_argument(
         "--plan-backend",

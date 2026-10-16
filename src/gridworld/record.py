@@ -93,6 +93,10 @@ class TickRecord(BaseModel):
     #: Story 5.7: P(plan) when the action question offered the plan option.
     plan_p: float | None = None
     plan: dict[str, Any] | None = None
+    #: Story 5.8: the plan's remaining route as the decider saw it, and why the
+    #: plan left the tail before this tick's decision (``exhausted`` / ``deviated``).
+    route_remaining: list[str] | None = None
+    plan_dropped: str | None = None
 
 
 class EpisodeEnd(BaseModel):
@@ -164,6 +168,8 @@ class EpisodeRecorder:
         pause_p: float | None = None,
         plan_p: float | None = None,
         plan: dict[str, Any] | None = None,
+        route_remaining: list[str] | None = None,
+        plan_dropped: str | None = None,
     ) -> None:
         """Record the decision taken from ``observation``."""
         self._write(
@@ -178,6 +184,8 @@ class EpisodeRecorder:
                 pause_p=pause_p,
                 plan_p=plan_p,
                 plan=plan,
+                route_remaining=route_remaining,
+                plan_dropped=plan_dropped,
             )
         )
 

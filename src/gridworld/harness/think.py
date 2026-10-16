@@ -39,6 +39,19 @@ same tick — the decision is asked again with the new plan in the tail, and
 monsters get no extra turn; ``tick`` spends the turn: the tick's action is
 ``wait`` (adjacent monsters hit) and the plan steers from the next tick. With
 ``start``, the cost applies to tick 0.
+
+Consumption (story 5.8): a plan with a parseable ``Route:`` line is walked as
+the episode goes (:class:`~gridworld.harness.route.RouteTracker`). The tail
+carries the plan with its route rewritten as the remaining moves
+(``remaining route: east, east.``); once the route is exhausted, or the taken
+actions miss the next move ``route_deviation_limit`` ticks running, the plan
+leaves the tail and the next tick's record carries ``plan_dropped``
+(``exhausted`` / ``deviated``). Under ``action`` a drop also ends the cooldown,
+so ``plan`` is offered again at once. The planning tick's own action counts
+against the route, except under ``--think-cost tick`` (that turn is ``wait``).
+A plan without a route stays until replaced, as does every plan with
+``plan_persist`` (the pre-5.8 behaviour). A trailing ``Action: ...`` line in the
+plan is stripped before injection in both cases; the record keeps it.
 """
 
 from __future__ import annotations
@@ -51,6 +64,13 @@ from ..render.text import to_text
 from ..sim import Action, Observation
 from .loop import Directive, Hooks
 from .plan import DEFAULT_PLAN_MAX_TOKENS, Planner, PlanResult, PlanStyle
+from .route import (
+    DEFAULT_DEVIATION_LIMIT,
+    RouteTracker,
+    parse_route,
+    plan_for_tail,
+    strip_action_line,
+)
 
 __all__ = ["PAUSE_INSTRUCTIONS", "PAUSE_QUESTION", "Cost", "SystemTwo", "ThinkConfig", "Trigger"]
 
@@ -73,6 +93,9 @@ class ThinkConfig:
     replan_every: int | None = None
     replan_on_damage: bool = False
     replan_on_reversals: int | None = None
+    #: Story 5.8: keep the plan (whole route) until replaced instead of consuming it.
+    plan_persist: bool = False
+    route_deviation_limit: int = DEFAULT_DEVIATION_LIMIT
 
     def __post_init__(self) -> None:
         rules = (self.replan_every, self.replan_on_damage, self.replan_on_reversals)
@@ -102,6 +125,11 @@ class SystemTwo:
         self._cells: list[tuple[int, int]] = []
         self._last_hp: int | None = None
         self._reversals_since_plan = 0
+        self._plan_raw: str | None = None
+        self.route: RouteTracker | None = None
+        self.dropped: str | None = None
+        self._uncooled = False
+        self._skip_tick: int | None = None
 
     # -- planning -----------------------------------------------------------------
 
@@ -126,7 +154,7 @@ class SystemTwo:
             _, last = self.plans[-1]
             line += (
                 f"\nPlans so far this episode: {len(self.plans)}. Your previous plan was: "
-                f"{last.plan.strip() or '(empty)'}\nIt did not get you to the goal. "
+                f"{strip_action_line(last.plan).strip() or '(empty)'}\nIt did not get you to the goal. "
                 "If you are repeating moves, choose a different route this time."
             )
         return line
@@ -143,11 +171,32 @@ class SystemTwo:
         self.plans.append((obs.tick, result))
         self._planned_tick = obs.tick
         self._tick["plan"] = result
-        if result.plan and not result.truncated:
-            self.plan_text = " ".join(result.plan.split())
+        text = strip_action_line(result.plan) if result.plan else ""
+        if text and not result.truncated:
+            self._plan_raw = text
+            moves = [] if self.config.plan_persist else parse_route(text)
+            self.route = RouteTracker(moves, self.config.route_deviation_limit) if moves else None
+            self.dropped, self._uncooled = None, False
+            self._skip_tick = obs.tick if self.config.cost == "tick" else None
+            self._render_plan()
         if self.view is not None and hasattr(self.view, "set_plan"):
             self.view.set_plan(obs.tick, self.plan_text, result.truncated)
         return result
+
+    def _render_plan(self) -> None:
+        raw = self._plan_raw
+        if raw is not None and self.route is not None:
+            raw = plan_for_tail(raw, self.route.remaining)
+        self.plan_text = " ".join(raw.split()) if raw else None
+
+    def _drop_if_done(self) -> None:
+        if self.route is None or self.route.state == "active":
+            return
+        self.dropped = self.route.state
+        self._tick["plan_dropped"] = self.dropped
+        self.route, self._plan_raw, self.plan_text = None, None, None
+        if self.config.trigger == "action":
+            self._uncooled = True
 
     # -- hooks ----------------------------------------------------------------------
 
@@ -164,6 +213,7 @@ class SystemTwo:
 
     def before_decision(self, obs: Observation, tick: int) -> str | None:
         cfg = self.config
+        self._drop_if_done()
         if cfg.trigger == "start" and tick == 0 and not self.plans:
             self._plan(obs, "start")
         elif cfg.trigger == "rule":
@@ -171,6 +221,10 @@ class SystemTwo:
             if reasons and self._cooled(tick):
                 self._plan(obs, "+".join(reasons))
         self._last_hp = obs.player_hp
+        if self.route is not None:
+            self._tick["route_remaining"] = [a.value for a in self.route.remaining]
+        if self.view is not None and hasattr(self.view, "show_plan") and self.plans:
+            self.view.show_plan(self.plan_text, self.dropped)
         return f"plan: {self.plan_text}" if self.plan_text else None
 
     def extra_questions(self, obs: Observation, tick: int) -> dict[str, Any] | None:
@@ -184,7 +238,7 @@ class SystemTwo:
 
     def _cooled(self, tick: int) -> bool:
         last = self.plans[-1][0] if self.plans else None
-        return last is None or tick - last >= self.config.cooldown
+        return self._uncooled or last is None or tick - last >= self.config.cooldown
 
     def after_decision(self, obs: Observation, tick: int, decision: Decision) -> Directive | None:
         cfg = self.config
@@ -215,6 +269,9 @@ class SystemTwo:
             self._cells.append(log.observation.player)
         self._cells.append(log.after.player)
         self._recent.append((log.action.value, log.after.player))
+        if self.route is not None and log.observation.tick != self._skip_tick:
+            self.route.advance(log.action)
+            self._render_plan()
         c = self._cells
         if len(c) >= 3 and c[-1] == c[-3] and c[-1] != c[-2]:
             self._reversals_since_plan += 1

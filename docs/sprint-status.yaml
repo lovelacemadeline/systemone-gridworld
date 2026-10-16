@@ -83,7 +83,7 @@ epics:
     title: System Two — let the model choose to pause and plan
     status: completed
     story_home: docs/stories/
-    stories_count: 7
+    stories_count: 8
     stories:
       - id: "5.1"
         title: Plan call over the chat route and plan injection into the memory tail
@@ -105,4 +105,7 @@ epics:
         status: completed
       - id: "5.7"
         title: Plan as a seventh action
+        status: completed
+      - id: "5.8"
+        title: Plans are consumed as the route is walked
         status: completed

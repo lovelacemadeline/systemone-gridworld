@@ -68,6 +68,8 @@ class TickLog(BaseModel):
     pause_p: float | None = None
     plan_p: float | None = None  # story 5.7: P(plan) when the action question offered it
     plan: Any = None  # harness.plan.PlanResult when System Two planned on this tick
+    route_remaining: list[str] | None = None  # story 5.8
+    plan_dropped: str | None = None  # story 5.8: exhausted / deviated
 
 
 class EpisodeSummary(BaseModel):

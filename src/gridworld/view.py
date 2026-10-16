@@ -31,6 +31,7 @@ from typing import Self
 
 from PIL import Image, ImageDraw, ImageFont
 
+from .harness.route import plan_for_tail, strip_action_line
 from .record import read_episode, replay
 from .render.image import to_image
 from .render.tiles import ACTION_COLOURS
@@ -47,6 +48,7 @@ ORACLE_OUTLINE = (255, 255, 255)
 BANNER_BG = (16, 16, 20)
 INFO_Y = 60 + 6 * 28 + 16
 PLAN_BAR = (90, 160, 240)  # the plan option's bar (story 5.7)
+DROPPED = (200, 160, 90)  # "plan dropped (...)" in the plan panel (story 5.8)
 PLAN_HEAD = (150, 200, 255)
 TRUNCATED = (214, 40, 96)  # distinct from the hp pips
 THINKING = (250, 200, 40)
@@ -111,6 +113,7 @@ def render_frame(
     plan_truncated: bool = False,
     thinking: bool = False,
     plan_ticks: Sequence[int] | None = None,
+    plan_dropped: str | None = None,
     tile: int = 16,
     scale: int = 3,
 ) -> Image.Image:
@@ -124,6 +127,9 @@ def render_frame(
     ``[truncated]`` badge when the last plan hit its cap, a yellow
     ``thinking...`` state (also as a banner over the map) while a plan call
     runs, and a tick strip of the last ticks with planning ticks marked.
+    Story 5.8: the plan text carries the remaining route as the decider saw it;
+    ``plan_dropped`` (``exhausted`` / ``deviated``) replaces it with a
+    ``plan dropped (<why>)`` state until the next plan.
     """
     plan_p = (probabilities or {}).get("plan")
     rows: list[Action | str] = [*Action, *(["plan"] if plan_p is not None else [])]
@@ -166,7 +172,16 @@ def render_frame(
         draw.text((x0, info_y + i * 18), line, fill=TEXT, font=font)
     if system_two:
         _plan_panel(
-            draw, font, x0, plan_y, obs.tick, plan_text, plan_truncated, thinking, plan_ticks
+            draw,
+            font,
+            x0,
+            plan_y,
+            obs.tick,
+            plan_text,
+            plan_truncated,
+            thinking,
+            plan_ticks,
+            plan_dropped,
         )
         if thinking and not banner:
             banner = "thinking..."
@@ -179,7 +194,9 @@ def render_frame(
     return frame
 
 
-def _plan_panel(draw, font, x0, y0, tick, text, truncated, thinking, plan_ticks) -> None:
+def _plan_panel(
+    draw, font, x0, y0, tick, text, truncated, thinking, plan_ticks, dropped=None
+) -> None:
     import textwrap
 
     draw.text((x0, y0), "plan", fill=PLAN_HEAD, font=font)
@@ -189,9 +206,13 @@ def _plan_panel(draw, font, x0, y0, tick, text, truncated, thinking, plan_ticks)
     if thinking:
         draw.rectangle((x0 + 128, y0 + 1, x0 + 138, y0 + 11), fill=THINKING)
         draw.text((x0 + 144, y0), "thinking...", fill=THINKING, font=font)
-    lines = textwrap.wrap(text or "(none yet)", PLAN_WRAP)[:PLAN_LINES]
-    for i, line in enumerate(lines):
-        draw.text((x0, y0 + 16 + 16 * i), line, fill=TEXT, font=font)
+    if dropped:
+        draw.rectangle((x0, y0 + 17, x0 + 10, y0 + 27), fill=DROPPED)
+        draw.text((x0 + 16, y0 + 16), f"plan dropped ({dropped})", fill=DROPPED, font=font)
+    else:
+        lines = textwrap.wrap(text or "(none yet)", PLAN_WRAP)[:PLAN_LINES]
+        for i, line in enumerate(lines):
+            draw.text((x0, y0 + 16 + 16 * i), line, fill=TEXT, font=font)
     sy = y0 + 16 + 16 * PLAN_LINES + 6
     start = max(0, tick - STRIP_LEN + 1)
     marked = set(plan_ticks or ())
@@ -227,6 +248,7 @@ class LiveView:
         self.plan_text: str | None = None
         self.plan_truncated = False
         self.plan_ticks: list[int] | None = None
+        self.plan_dropped: str | None = None
         self.open = True
 
     def _pump(self) -> bool:
@@ -295,6 +317,7 @@ class LiveView:
             "plan_truncated": self.plan_truncated,
             "thinking": thinking,
             "plan_ticks": self.plan_ticks,
+            "plan_dropped": self.plan_dropped,
         }
 
     def set_plan(
@@ -303,11 +326,19 @@ class LiveView:
         """Record a plan made on ``tick`` (``reset`` starts a new episode's plan state)."""
         if reset or self.plan_ticks is None:
             self.plan_ticks, self.plan_text, self.plan_truncated = [], None, False
+            self.plan_dropped = None
         if tick is not None:
             self.plan_ticks.append(tick)
             self.plan_truncated = truncated
             if text:
-                self.plan_text = text
+                self.plan_text, self.plan_dropped = text, None
+
+    def show_plan(self, text: str | None, dropped: str | None = None) -> None:
+        """Story 5.8: the plan as the decider sees it this tick (remaining route), or
+        the ``plan dropped (<why>)`` state when ``dropped`` is set."""
+        if self.plan_ticks is None:
+            self.plan_ticks = []
+        self.plan_text, self.plan_dropped = text, dropped
 
     def thinking(self, obs: Observation) -> bool:
         """Show the thinking state before a (blocking) plan call; returns ``open``."""
@@ -382,11 +413,22 @@ def play_file(
     ) as view:
         if any(t.plan or t.pause_p is not None or t.plan_p is not None for t in episode.ticks):
             view.set_plan(None, None, False, reset=True)
+        raw: str | None = None
         for t in episode.ticks:
+            if t.plan_dropped:
+                raw = None
+                view.show_plan(None, t.plan_dropped)
             if t.plan:
-                text = " ".join(t.plan.get("plan", "").split())
+                text = strip_action_line(t.plan.get("plan", ""))
                 truncated = bool(t.plan.get("truncated"))
-                view.set_plan(t.observation.tick, None if truncated else text, truncated)
+                if text and not truncated:
+                    raw = text
+                view.set_plan(
+                    t.observation.tick, None if truncated else " ".join(text.split()), truncated
+                )
+            if raw is not None and t.route_remaining is not None:
+                remaining = [Action(a) for a in t.route_remaining]
+                view.show_plan(" ".join(plan_for_tail(raw, remaining).split()))
             probs = t.probabilities
             if t.plan_p is not None:
                 probs = {**(probs or {}), "plan": t.plan_p}

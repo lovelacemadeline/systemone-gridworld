@@ -20,7 +20,8 @@ threshold triggers a plan. The viewer shows the current plan text and marks
 planning ticks on the timeline, so a human can see when it chose to think.
 Later triggers: rules the harness can see (story 5.6), and `plan` as a
 seventh option of the action question itself, so one readout covers moving
-and thinking (story 5.7).
+and thinking (story 5.7). Plans are consumed as their route is walked and
+dropped when it is exhausted or abandoned (story 5.8).
 Cost is the point: a plan is hundreds of decoded tokens, so the report must
 show agreement and completion against decisions per second and total tokens.
 
@@ -34,6 +35,7 @@ show agreement and completion against decisions per second and total tokens.
 | 5.5 | Planner on a different model than the decider | completed |
 | 5.6 | Rule-based replan triggers — every N ticks, on damage, on reversals | completed |
 | 5.7 | Plan as a seventh action | completed |
+| 5.8 | Plans are consumed as the route is walked | completed |
 
 ## Related
 - Story 4.4 memory modes; golden repo Epic 3 (chat route on the same model)
