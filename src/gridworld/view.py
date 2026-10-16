@@ -160,7 +160,10 @@ def render_frame(
     ``plan dropped (<why>)`` state until the next plan.
     """
     plan_p = (probabilities or {}).get("plan")
-    rows: list[Action | str] = [*Action, *(["plan"] if plan_p is not None else [])]
+    # Reserve the plan row whenever System Two is on, so the panel (and the
+    # window) keeps one height through cooldowns, when plan is not offered.
+    show_plan_row = plan_p is not None or plan_ticks is not None
+    rows: list[Action | str] = [*Action, *(["plan"] if show_plan_row else [])]
     info_y = INFO_Y + 28 * (len(rows) - len(Action))
     board = to_image(obs, tile)
     board = board.resize((board.width * scale, board.height * scale), Image.Resampling.NEAREST)
@@ -306,6 +309,8 @@ class LiveView:
         lines = [f"prefix v{self.prefix.version} ({self.prefix.kind})"]
         if self.reload_note and time.monotonic() - self.reload_note[1] < RELOAD_NOTE_S:
             lines.append(f"prefix reloaded at tick {self.reload_note[0]}")
+        else:
+            lines.append("")  # keep the panel height stable when the note goes
         return lines
 
     def _info(self) -> list[str]:
