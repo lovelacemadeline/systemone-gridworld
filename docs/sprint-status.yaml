@@ -33,7 +33,7 @@ epics:
         status: completed
       - id: "2.3"
         title: Lossless round-trip test between text, image and observation
-        status: pending
+        status: completed
       - id: "2.4"
         title: Live view window with probability bars and oracle overlay
         status: pending
