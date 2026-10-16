@@ -42,9 +42,9 @@ epics:
         status: completed
   - epic: 3
     title: Backends behind the wire schema
-    status: completed
+    status: in-progress
     story_home: docs/stories/
-    stories_count: 4
+    stories_count: 5
     stories:
       - id: "3.1"
         title: Vendored schema, request builder and validating adapter protocol
@@ -58,11 +58,14 @@ epics:
       - id: "3.4"
         title: HTTP backend for /v1/systemone servers
         status: completed
+      - id: "3.5"
+        title: Image mode through the local backend
+        status: pending
   - epic: 4
     title: Harness, scoring and reports
-    status: completed
+    status: in-progress
     story_home: docs/stories/
-    stories_count: 6
+    stories_count: 7
     stories:
       - id: "4.1"
         title: Episode loop and decision log
@@ -82,6 +85,9 @@ epics:
       - id: "4.6"
         title: Summary memory knobs — recent-action length and visit counts
         status: completed
+      - id: "4.7"
+        title: Frame history as a transcript — past frames stay cached
+        status: pending
   - epic: 5
     title: System Two — let the model choose to pause and plan
     status: in-progress
