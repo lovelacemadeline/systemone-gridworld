@@ -64,27 +64,48 @@ class SummaryMemory:
     Renders as ``recent: east->(3,4), east->(4,4), north->(4,3)`` (oldest
     first; ``recent: none`` on the first tick). Bounded tokens, still one fresh
     request per tick, and only the status line differs from ``none``.
+
+    ``visits=True`` (story 4.6) adds visit counts for the episode so far, the
+    start cell included: ``here (8,6) visited 12x; most visited: (8,6) 12,
+    (9,6) 11, (7,5) 2`` (ties broken by cell order).
     """
 
     name = "summary"
 
-    def __init__(self, k: int = 3) -> None:
-        self.k = k
+    def __init__(self, k: int = 3, visits: bool = False) -> None:
+        self.k, self.visits = k, visits
         self._recent: list[tuple[Action, tuple[int, int]]] = []
+        self._counts: dict[tuple[int, int], int] = {}
 
     def reset(self) -> None:
         self._recent = []
+        self._counts = {}
+
+    def _visit_line(self, obs: Observation) -> str:
+        counts = self._counts or {obs.player: 1}
+        top = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:3]
+        x, y = obs.player
+        most = ", ".join(f"({cx},{cy}) {n}" for (cx, cy), n in top)
+        return f"here ({x},{y}) visited {counts.get(obs.player, 1)}x; most visited: {most}"
 
     def tail(self, obs: Observation) -> str | None:
-        if not self._recent:
-            return "recent: none"
-        return "recent: " + ", ".join(f"{a.value}->({x},{y})" for a, (x, y) in self._recent)
+        if not self._counts:
+            self._counts[obs.player] = 1
+        recent = (
+            "recent: " + ", ".join(f"{a.value}->({x},{y})" for a, (x, y) in self._recent)
+            if self._recent
+            else "recent: none"
+        )
+        return f"{recent} | {self._visit_line(obs)}" if self.visits else recent
 
     def history(self) -> list[str]:
         return []
 
     def observe(self, obs: Observation, text: str, action: Action, after: Observation) -> None:
         self._recent = [*self._recent, (action, after.player)][-self.k :]
+        if not self._counts:
+            self._counts[obs.player] = 1
+        self._counts[after.player] = self._counts.get(after.player, 0) + 1
 
 
 class TranscriptMemory:
@@ -122,9 +143,11 @@ MEMORY_MODES: dict[str, type] = {
 }
 
 
-def make_memory(name: str) -> Memory:
-    """Build a memory mode by name (see :data:`MEMORY_MODES`)."""
+def make_memory(name: str, *, k: int = 3, visits: bool = False) -> Memory:
+    """Build a memory mode by name (see :data:`MEMORY_MODES`); ``k`` and ``visits``
+    configure ``summary`` and are ignored by the others."""
     try:
-        return MEMORY_MODES[name]()
+        cls = MEMORY_MODES[name]
     except KeyError:
         raise ValueError(f"unknown memory {name!r}; choose from {sorted(MEMORY_MODES)}") from None
+    return cls(k=k, visits=visits) if cls is SummaryMemory else cls()

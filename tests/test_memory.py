@@ -70,3 +70,44 @@ def test_oscillation_is_reported_per_memory_mode(tmp_path):
 def test_make_memory():
     assert make_memory("summary").name == "summary"
     assert make_memory("transcript").history() == []
+
+
+def test_summary_k_and_visit_counts():
+    spy = Spy()
+    mem = SummaryMemory(k=10, visits=True)
+    run_episode(GridWorld(), spy, seed=3, max_ticks=12, memory=mem)
+    first = spy.requests[0]["state"].split("\n")[-1]
+    x, y = GridWorld().reset(3).player
+    assert first.endswith(f"recent: none | here ({x},{y}) visited 1x; most visited: ({x},{y}) 1")
+    last = spy.requests[-1]["state"].split("\n")[-1]
+    recent = last.split(" | recent: ")[1].split(" | here ")[0].split(", ")
+    assert len(recent) == 10
+    assert " | here (" in last and "x; most visited: " in last
+
+
+def test_visit_counts_on_a_back_and_forth_path():
+    from gridworld.sim import Action
+
+    mem = SummaryMemory(visits=True)
+    obs = GridWorld().reset(3)
+    a = obs
+    b = obs.model_copy(update={"player": (obs.player[0] - 1, obs.player[1])})
+    for before, after in [(a, b), (b, a), (a, b), (b, a)]:
+        mem.observe(before, "", Action.WEST, after)
+    tail = mem.tail(a)
+    (ax, ay), (bx, by) = a.player, b.player
+    assert f"here ({ax},{ay}) visited 3x; most visited: ({ax},{ay}) 3, ({bx},{by}) 2" in tail
+
+
+def test_memory_knobs_reach_the_report(tmp_path):
+    import json
+
+    from gridworld import cli
+
+    out = tmp_path / "runs"
+    argv = ["play", "--episodes", "1", "--memory", "summary", "--memory-k", "10"]
+    assert cli.main([*argv, "--memory-visits", "--out", str(out)]) == 0
+    (js,) = out.glob("*.json")
+    meta = json.loads(js.read_text())["meta"]
+    assert (meta["memory_k"], meta["memory_visits"]) == (10, True)
+    assert js.name.endswith("-summary-k10-visits.json")

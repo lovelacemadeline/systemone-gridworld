@@ -40,6 +40,9 @@ class RunMeta(BaseModel):
     labels: str = "letters"
     #: System Two settings (trigger, style, max_tokens, ...) or None when not thinking.
     think: dict[str, Any] | None = None
+    #: Summary-memory knobs (story 4.6).
+    memory_k: int = 3
+    memory_visits: bool = False
     git_rev: str | None
     power: dict[str, Any]
     config: WorldConfig
@@ -75,10 +78,16 @@ def run_name(
     legal_only: bool = False,
     labels: str = "letters",
     think: Any = None,
+    memory_k: int = 3,
+    memory_visits: bool = False,
 ) -> str:
     """``<stamp>-<backend>-<mode>-<memory>``, plus ``-legal`` / ``-<labels>`` /
     ``-think-<trigger>-<style>`` when not default."""
     extra = ("-legal" if legal_only else "") + ("" if labels == "letters" else f"-{labels}")
+    if memory_k != 3:
+        extra += f"-k{memory_k}"
+    if memory_visits:
+        extra += "-visits"
     if think is not None:
         extra += f"-think-{think.trigger}-{think.style}"
     return f"{stamp or utc_stamp()}-{_slug(backend)}-{mode}-{memory}{extra}"
@@ -142,7 +151,8 @@ def to_markdown(report: RunReport) -> str:
         "",
         f"- backend: `{m.backend}`" + (f" (model `{m.model}`)" if m.model else ""),
         (
-            f"- mode: {m.mode}; memory: {m.memory}; labels: {m.labels}; "
+            f"- mode: {m.mode}; memory: {m.memory} (k {m.memory_k}, visits "
+            f"{'on' if m.memory_visits else 'off'}); labels: {m.labels}; "
             f"legal-only: {'on' if m.legal_only else 'off'}"
         ),
         f"- git rev: {m.git_rev or '-'}; power: {power}",

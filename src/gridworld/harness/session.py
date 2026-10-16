@@ -86,6 +86,8 @@ def run_session(
     labels: str = "letters",
     think: ThinkConfig | None = None,
     planner: Planner | None = None,
+    memory_k: int = 3,
+    memory_visits: bool = False,
 ) -> SessionResult:
     """Play a session and write its report (see the module docstring)."""
     world = GridWorld(config)
@@ -100,6 +102,8 @@ def run_session(
         legal_only=legal_only,
         labels=labels,
         think=think if thinking else None,
+        memory_k=memory_k,
+        memory_visits=memory_visits,
     )
     label_style = {"letters": None, "words": "option-text"}[labels]
     out = Path(out_dir)
@@ -118,6 +122,8 @@ def run_session(
             legal_only=legal_only,
             labels=labels,
             think=asdict(think) if thinking else None,
+            memory_k=memory_k,
+            memory_visits=memory_visits,
             git_rev=rev,
             power=power_state(),
             config=world.config,
@@ -145,7 +151,7 @@ def run_session(
                 seed=seed + i,
                 mode=mode,
                 prefix=prefix,
-                memory=make_memory(memory),
+                memory=make_memory(memory, k=memory_k, visits=memory_visits),
                 record_path=episode_dir / f"seed-{seed + i:04d}.jsonl",
                 view=view,
                 hooks=episode_hooks,

@@ -126,6 +126,8 @@ def _play(args: argparse.Namespace) -> int:
             labels=args.labels,
             think=think,
             planner=planner,
+            memory_k=args.memory_k,
+            memory_visits=args.memory_visits,
         )
     finally:
         if view is not None:
@@ -154,6 +156,10 @@ def build_parser() -> argparse.ArgumentParser:
     play.add_argument("--backend", choices=["fake", "local", "http"], default="fake")
     play.add_argument("--mode", choices=["text", "image"], default="text")
     play.add_argument("--memory", choices=sorted(MEMORY_MODES), default="none")
+    play.add_argument("--memory-k", type=int, default=3, help="summary: recent actions kept")
+    play.add_argument(
+        "--memory-visits", action="store_true", help="summary: add visit counts to the tail"
+    )
     play.add_argument("--episodes", type=int, default=5, help="0 = until stopped (Esc/q, Ctrl-C)")
     play.add_argument("--seed", type=int, default=0, help="first seed; episode i uses seed + i")
     play.add_argument("--max-ticks", type=int, default=None, help="cut episodes short")

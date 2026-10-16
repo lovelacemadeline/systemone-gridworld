@@ -19,5 +19,6 @@ The loop: observe, render, ask one `choice`, act, log. Scoring: oracle agreement
 | 4.3 | play CLI and headless CI run with the fake backend | completed |
 | 4.4 | Memory modes — none, summary, transcript | completed |
 | 4.5 | Legal-action mask and label style | completed |
+| 4.6 | Summary memory knobs — recent-action length and visit counts | completed |
 ## Related
 - [PRD](../product/prd-gridworld-benchmark.md)
