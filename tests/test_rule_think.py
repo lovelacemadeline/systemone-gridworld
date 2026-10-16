@@ -91,9 +91,14 @@ def test_coinciding_reasons_are_joined_and_the_prompt_says_why():
     )
     reasons = {t: p.reason for t, p in two.plans}
     assert reasons[0] == "interval" and reasons[3] == "interval+reversals"
-    ctx = planner.calls[-1]["state"].split("\n")[-1]
+    lines = planner.calls[-1]["state"].split("\n")
+    ctx = next(line for line in lines if line.startswith("Recent moves:"))
     assert ctx.startswith("Recent moves: west->(") and "| hp 6 |" in ctx
     assert ctx.endswith("Planning now because: scheduled refresh, you keep moving back and forth")
+    # a second plan sees the first one, so it can stop repeating itself
+    assert "Plans so far this episode: 1. Your previous plan was:" in lines[-2]
+    assert lines[-1].endswith("choose a different route this time.")
+    assert "Plans so far" not in planner.calls[0]["state"]
 
 
 def test_reasons_are_summarised_in_the_report(tmp_path):

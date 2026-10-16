@@ -73,3 +73,11 @@ option, `plan`. One readout per tick covers both moving and thinking.
   `gridworld play --backend local --model mlx-community/gemma-4-26B-A4B-it-qat-4bit
   --think action --plan direct --labels words --legal-only --memory summary
   --episodes 5 --seed 0`.
+
+## Follow-up (2026-10-16, after watching the 26B)
+
+On a map where it ping-ponged, the 26B chose `plan` repeatedly and wrote the
+same plan each time, because the plan prompt never showed it its previous
+plan. The context now adds, from the second plan on, the plan count, the
+previous plan text, and a nudge to choose a different route when moves are
+repeating. First plans are unchanged. Anchor: `think.py::context_line`.

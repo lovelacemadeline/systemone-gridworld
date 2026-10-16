@@ -121,7 +121,15 @@ class SystemTwo:
             }.get(r, why.get(r, r))
             for r in reason.split("+")
         )
-        return f"Recent moves: {recent} | hp {obs.player_hp} | Planning now because: {reasons}"
+        line = f"Recent moves: {recent} | hp {obs.player_hp} | Planning now because: {reasons}"
+        if self.plans:
+            _, last = self.plans[-1]
+            line += (
+                f"\nPlans so far this episode: {len(self.plans)}. Your previous plan was: "
+                f"{last.plan.strip() or '(empty)'}\nIt did not get you to the goal. "
+                "If you are repeating moves, choose a different route this time."
+            )
+        return line
 
     def _plan(self, obs: Observation, reason: str) -> PlanResult:
         if self.view is not None and hasattr(self.view, "thinking"):
