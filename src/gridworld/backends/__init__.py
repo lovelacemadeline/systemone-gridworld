@@ -26,6 +26,7 @@ __all__ = [
 #: name -> "module:Class", imported only when made (keeps optional extras optional).
 BACKENDS: dict[str, str] = {
     "fake": ".fake:FakeBackend",
+    "local": ".local:LocalBackend",
 }
 
 

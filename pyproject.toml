@@ -13,7 +13,11 @@ image = ["Pillow>=10"]
 view = ["pygame-ce>=2.5", "Pillow>=10"]
 http = ["httpx>=0.27"]
 # In-process backend against the golden library (sibling checkout or GitHub).
-local = ["mlx-classifiers @ git+https://github.com/lovelacemadeline/mlx-lm-as-classifiers.git"]
+local = [
+  "mlx-classifiers @ git+https://github.com/lovelacemadeline/mlx-lm-as-classifiers.git",
+  "mlx==0.32.0",
+  "mlx-lm==0.31.3",
+]
 dev = ["pytest>=8", "ruff"]
 
 [project.scripts]
@@ -35,6 +39,10 @@ packages = ["src/gridworld"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+  "mlx: loads real model weights and runs on the GPU (skipped without mlx-classifiers or cached weights)",
+  "server: needs a running mlx-classifiers server (skipped unless GRIDWORLD_SERVER_URL is set)",
+]
 
 [tool.ruff]
 line-length = 100

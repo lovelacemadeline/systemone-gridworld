@@ -51,7 +51,7 @@ epics:
         status: completed
       - id: "3.3"
         title: In-process backend over mlx-classifiers decide()
-        status: pending
+        status: completed
       - id: "3.4"
         title: HTTP backend for /v1/systemone servers
         status: pending
