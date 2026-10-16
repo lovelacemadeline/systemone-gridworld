@@ -50,3 +50,27 @@ edge-cell visit share for the model versus the oracle on the same seeds. If
 confirmed, two fixes to compare: draw an explicit floor border in the image
 and say "the map edge is not a wall" in the prefix, versus a verifier
 (this story) that would route it out regardless.
+
+**Measured** (same evening, from `runs/20261016T205725Z-...-image-summary-legal-words-think-action-direct/`,
+26B int8, image + text, summary memory, plan as action): share of visited
+cells that lie on the outer row or column, model vs the oracle on the same
+seed, with the share of the map's floor that is edge for scale.
+
+| seed | result | model | oracle | floor edge share |
+|---|---|---|---|---|
+| 0 | won | 15% | 21% | 36% |
+| 1 | won | 8% | 7% | 33% |
+| 2 | won | 0% | 7% | 35% |
+| 3 | won | 21% | 68% | 40% |
+| 4 | won | 31% | 50% | 32% |
+| 5 | won | 8% | 6% | 38% |
+| 6 | won | 0% | 8% | 29% |
+| 7 | stuck | 0% | 23% | 36% |
+
+The model under-uses the edge on every seed and never touches it on three;
+seed 7's only exit runs along the edge. First experiment is a prefix line
+("the outer row and column are ordinary floor, not walls") via the live
+prefix editor; second is an explicit border in the image renderer (changes
+pinned pixels and the golden battery frames, so only if the line is not
+enough). This metric should go in the report as `edge_share` alongside
+oscillation.
