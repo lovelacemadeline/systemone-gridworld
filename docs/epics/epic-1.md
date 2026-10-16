@@ -1,6 +1,6 @@
 ---
 type: epic
-status: in-progress
+status: completed
 title: Simulator and oracle
 epic: 1
 owner: maddie
@@ -17,6 +17,6 @@ A deterministic gridworld: small rectangular map with walls, one player, a goal,
 | 1.1 | Observation record and map generation | completed |
 | 1.2 | Step dynamics — movement, monsters, combat, termination | completed |
 | 1.3 | Scripted oracle policy | completed |
-| 1.4 | Episode recording and replay | ready-for-dev |
+| 1.4 | Episode recording and replay | completed |
 ## Related
 - [PRD](../product/prd-gridworld-benchmark.md), ADR-0001

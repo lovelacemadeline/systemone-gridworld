@@ -3,7 +3,7 @@
 epics:
   - epic: 1
     title: Simulator and oracle
-    status: in-progress
+    status: completed
     story_home: docs/stories/
     stories_count: 4
     stories:
@@ -18,7 +18,7 @@ epics:
         status: completed
       - id: "1.4"
         title: Episode recording and replay
-        status: ready-for-dev
+        status: completed
   - epic: 2
     title: Renderers — text, image, live view
     status: pending
