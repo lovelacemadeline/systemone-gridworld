@@ -49,9 +49,10 @@ report under `runs/` on exit. Map flags: `--width`, `--height`, `--monsters`,
 - `--backend fake`: the oracle with controllable noise, for CI and plumbing.
 - `--backend http --url http://host:port`: any server exposing
   `POST /v1/systemone` with the vendored schema (see `schema/`).
-- `--backend local`: in-process over the `mlx-classifiers` library on Apple
-  silicon. That library is not yet public; the HTTP backend is the way to
-  plug in your own model in the meantime.
+- `--backend local`: in-process over the
+  [mlx-lm-as-classifiers](https://github.com/lovelacemadeline/mlx-lm-as-classifiers)
+  library on Apple silicon (`uv pip install --python .venv/bin/python -e '.[local]'`);
+  `--model` picks the mlx-community repo, `--int8` turns on the M5 kernels.
 
 ## Options that change what the model is asked
 
