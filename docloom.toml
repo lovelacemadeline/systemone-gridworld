@@ -1,0 +1,42 @@
+# docloom configuration — everything repo-specific the gauntlet needs.
+# Defaults shown commented; uncomment to override.
+
+[docloom]
+# exclude = [".claude/", "node_modules/"]     # corpus exclusions (path prefixes)
+# tracker = "docs/sprint-status.yaml"         # the sprint tracker (execution SSoT)
+# stories-dir = "docs/stories"
+# epics-dir = "docs/epics"
+# adr-dir = "docs/adr"
+base-branch = "main"                          # for the "work begun in-branch" nudge
+
+[docloom.gate3]
+min-epic = 1              # stories in epics >= this need an `anchor:` field
+enforced = true           # false = advisory-only (brownfield rollout ratchet)
+
+[docloom.epic_shape]
+# "Epics stay thin" (ADR-0005): E1 no Result/Findings sections, E2 no
+# measurement tables outside `## Stories`, E3 a soft line ceiling exempted
+# per-doc by `shape-exempt: <reason>` frontmatter. Same ratchet as gate3:
+# false = report as "would fail once enforced". E4 (a quantitative claim links
+# its story) is advisory permanently and is not affected by this flag.
+# `enabled` switches the whole lint; a config without the key runs without it.
+enabled = true
+enforced = false
+max-lines = 120
+
+[docloom.anchors]
+resolver = "python"       # symbol/test resolver (v1: python only)
+route-resolver = "litestar"
+route-globs = ["src/**/*.py"]
+
+# Vocabulary: the conventions doc is SELF-DESCRIBING — its `vocabulary:`
+# frontmatter block is the authoritative enum source (the doc agents read IS
+# the spec the checker enforces; its prose tables are agreement-checked against
+# the block). Removing this line falls back to docloom's built-in defaults;
+# pointing at a doc without the block is a hard error, never a silent fallback.
+[docloom.vocabulary]
+from-doc = "docs/doc-conventions.md"
+
+# Sibling checkouts usable as `source_docs:` schemes on epic docs, e.g.:
+# [docloom.siblings]
+# contracts = "../my-contracts-repo"

@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/lovelacemadeline/mlx-lm-as-classifiers/schema/v1/request.json",
+  "title": "SystemOneRequest",
+  "description": "A decision request: one state, many named questions. Wire-compatible with TypeSafe Jev's POST /v1/systemone (ADR-0001) plus local extensions marked x-local.",
+  "type": "object",
+  "required": ["state", "questions"],
+  "additionalProperties": false,
+  "properties": {
+    "model": { "type": "string", "description": "Model id. Omit for the server default." },
+    "state": {
+      "description": "The unstructured program state the questions are about.",
+      "oneOf": [
+        { "type": "string" },
+        { "type": "object" },
+        { "type": "array", "items": { "type": "string" } }
+      ]
+    },
+    "prefix": {
+      "type": "string",
+      "description": "x-local. Stable rules/system text that is KV-cached across requests; only `state` is prefilled per call."
+    },
+    "questions": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/Question" }
+    },
+    "options": { "$ref": "#/$defs/RequestOptions" }
+  },
+  "$defs": {
+    "Question": {
+      "oneOf": [
+        { "$ref": "#/$defs/NoulQuestion" },
+        { "$ref": "#/$defs/ChoiceQuestion" },
+        { "$ref": "#/$defs/ScoreQuestion" }
+      ]
+    },
+    "NoulQuestion": {
+      "type": "object",
+      "required": ["type", "instructions"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "noul" },
+        "instructions": { "type": "string", "description": "A yes/no question." }
+      }
+    },
+    "ChoiceQuestion": {
+      "type": "object",
+      "required": ["type", "instructions", "criteria"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "choice" },
+        "instructions": { "type": "string" },
+        "criteria": {
+          "type": "object",
+          "minProperties": 2,
+          "description": "option name -> description (or null).",
+          "additionalProperties": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "ScoreQuestion": {
+      "type": "object",
+      "required": ["type", "instructions", "criteria"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "score" },
+        "instructions": { "type": "string" },
+        "criteria": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "type": "string" },
+          "description": "Ordered levels, lowest first. Index is the score."
+        }
+      }
+    },
+    "RequestOptions": {
+      "type": "object",
+      "description": "x-local. Inference knobs; all optional.",
+      "additionalProperties": false,
+      "properties": {
+        "permutations": { "type": "integer", "minimum": 1, "maximum": 8, "default": 1,
+          "description": "Ask each question this many times with option order permuted and average, to reduce position bias." },
+        "calibrated": { "type": "boolean", "default": true,
+          "description": "Apply the fitted temperature. Raw probabilities are always returned alongside." },
+        "readout": { "type": "string", "enum": ["first-token", "sequence"], "default": "first-token",
+          "description": "first-token: masked softmax over option-label tokens at the readout position. sequence: teacher-forced loglikelihood of each full option string (ADR-0003)." },
+        "debug": { "type": "boolean", "default": false,
+          "description": "Include the readout token ids and raw logits in each answer." }
+      }
+    }
+  }
+}

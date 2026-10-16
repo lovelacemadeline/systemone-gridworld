@@ -1,0 +1,72 @@
+# Sprint tracker — the canonical execution-status source (`docloom check`
+# enforces bijection between these rows and docs/stories/*.md files).
+epics:
+  - epic: 1
+    title: Simulator and oracle
+    status: ready-for-dev
+    story_home: docs/stories/
+    stories_count: 4
+    stories:
+      - id: "1.1"
+        title: Observation record and map generation
+        status: ready-for-dev
+      - id: "1.2"
+        title: Step dynamics — movement, monsters, combat, termination
+        status: ready-for-dev
+      - id: "1.3"
+        title: Scripted oracle policy
+        status: ready-for-dev
+      - id: "1.4"
+        title: Episode recording and replay
+        status: ready-for-dev
+  - epic: 2
+    title: Renderers — text, image, live view
+    status: pending
+    story_home: docs/stories/
+    stories_count: 4
+    stories:
+      - id: "2.1"
+        title: Text renderer with stable-first layout
+        status: pending
+      - id: "2.2"
+        title: Image renderer and the shared tile code
+        status: pending
+      - id: "2.3"
+        title: Lossless round-trip test between text, image and observation
+        status: pending
+      - id: "2.4"
+        title: Live view window with probability bars and oracle overlay
+        status: pending
+  - epic: 3
+    title: Backends behind the wire schema
+    status: pending
+    story_home: docs/stories/
+    stories_count: 4
+    stories:
+      - id: "3.1"
+        title: Vendored schema, request builder and validating adapter protocol
+        status: pending
+      - id: "3.2"
+        title: Fake backend — oracle with controllable noise
+        status: pending
+      - id: "3.3"
+        title: In-process backend over mlx-classifiers decide()
+        status: pending
+      - id: "3.4"
+        title: HTTP backend for /v1/systemone servers
+        status: pending
+  - epic: 4
+    title: Harness, scoring and reports
+    status: pending
+    story_home: docs/stories/
+    stories_count: 3
+    stories:
+      - id: "4.1"
+        title: Episode loop and decision log
+        status: pending
+      - id: "4.2"
+        title: Scoring and the run report
+        status: pending
+      - id: "4.3"
+        title: play CLI and headless CI run with the fake backend
+        status: pending

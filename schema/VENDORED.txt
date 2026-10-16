@@ -1,0 +1,1 @@
+Vendored from https://github.com/lovelacemadeline/mlx-lm-as-classifiers/tree/main/schema at commit f878a9d on 2026-10-16. Do not edit; re-vendor and bump this note.

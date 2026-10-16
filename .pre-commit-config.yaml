@@ -1,0 +1,13 @@
+repos:
+  - repo: local
+    hooks:
+      # Documentation-convention gauntlet (docs/doc-conventions.md). Whole-corpus
+      # and cross-file (a story edit must reconcile with the tracker), so it
+      # always scans everything (pass_filenames: false) — merely *triggered*
+      # whenever a doc, the tracker, or the config changes.
+      - id: docloom
+        name: Documentation conventions (docloom gauntlet)
+        entry: docloom check
+        language: system
+        files: '(\.md$|docs/sprint-status\.yaml$|docloom\.toml$)'
+        pass_filenames: false
