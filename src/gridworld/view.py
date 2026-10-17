@@ -23,8 +23,9 @@ a hot reload, ``prefix reloaded at tick T``. P calls ``on_prefix_key`` (the
 session's :func:`~gridworld.harness.prompts.edit_prefix`).
 
 Story 4.9: N sets ``skip_requested`` (the loop ends the episode ``skipped``),
-and the loop's ``reversal_streak`` ``(count, stuck_after)`` is appended to the
-``reversals/ep`` tally line as ``in a row K`` (``K/N`` with ``--stuck-after``).
+and the loop's ``stuck_streak`` ``(count, stuck_after)`` is appended to the
+``reversals/ep`` tally line as ``no new cell K`` (``K/N`` with
+``--stuck-after``; story 4.10).
 
 pygame (the ``view`` extra) is imported only when a window opens;
 :class:`ViewUnavailable` names the extra to install.
@@ -295,9 +296,9 @@ class LiveView:
         self.on_prefix_key: Callable[[], Any] | None = None
         self.reload_note: tuple[int, float] | None = None
         #: Story 4.9: N asks the loop to skip the episode; the loop's live
-        #: consecutive-reversal count and the stuck rule (0 = off).
+        #: ticks since a never-visited cell and the stuck rule (0 = off).
         self.skip_requested = False
-        self.reversal_streak: tuple[int, int] = (0, 0)
+        self.stuck_streak: tuple[int, int] = (0, 0)
         self.open = True
 
     def _pump(self) -> bool:
@@ -329,9 +330,9 @@ class LiveView:
         return lines
 
     def streak_text(self) -> str:
-        """``in a row K`` (``K/N`` when the stuck rule is on): the live reversal streak."""
-        count, limit = self.reversal_streak
-        return f"in a row {count}/{limit}" if limit else f"in a row {count}"
+        """``no new cell K`` (``K/N`` with the stuck rule on): ticks since a new cell."""
+        count, limit = self.stuck_streak
+        return f"no new cell {count}/{limit}" if limit else f"no new cell {count}"
 
     def _info(self) -> list[str]:
         lines = [

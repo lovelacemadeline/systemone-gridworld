@@ -23,5 +23,6 @@ The loop: observe, render, ask one `choice`, act, log. Scoring: oracle agreement
 | 4.7 | Frame history as a transcript — past frames stay cached | completed |
 | 4.8 | Edit the rules prefix live — hot reload and an edit key | completed |
 | 4.9 | Stuck rule and a skip key | completed |
+| 4.10 | Stuck means no new cell — the rule fires on pacing and parking | completed |
 ## Related
 - [PRD](../product/prd-gridworld-benchmark.md)

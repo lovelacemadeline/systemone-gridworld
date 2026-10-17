@@ -65,7 +65,7 @@ epics:
     title: Harness, scoring and reports
     status: completed
     story_home: docs/stories/
-    stories_count: 7
+    stories_count: 10
     stories:
       - id: "4.1"
         title: Episode loop and decision log
@@ -93,6 +93,9 @@ epics:
         status: completed
       - id: "4.9"
         title: Stuck rule and a skip key
+        status: completed
+      - id: "4.10"
+        title: Stuck means no new cell — the rule fires on pacing and parking
         status: completed
   - epic: 5
     title: System Two — let the model choose to pause and plan

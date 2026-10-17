@@ -19,7 +19,8 @@ start) and a tick's ``prefix_reloaded`` (the new prefix version, on the tick a
 hot reload took effect).
 An ``end`` reason other than goal/dead/timeout (``stopped``, ``max_ticks``,
 and story 4.9's ``stuck`` / ``skipped``) marks an episode the harness ended;
-story 4.9 adds the end line's ``stuck_after`` and ``consecutive_reversals``.
+story 4.9 adds the end line's ``stuck_after`` (and ``consecutive_reversals``,
+replaced by ``ticks_without_new_cell`` in story 4.10).
 
 A ``tick`` line holds the observation the decision was made on and the action
 taken from it; the first one is ``GridWorld.reset(seed)``. The ``end`` line
@@ -118,9 +119,11 @@ class EpisodeEnd(BaseModel):
     observation: Observation
     reward: int
     reason: str
-    #: Story 4.9: the ``--stuck-after`` rule (when on) and the consecutive
-    #: immediate reversals at the end (``stuck`` when it reached the rule).
+    #: Story 4.9: the ``--stuck-after`` rule (when on). Story 4.10: the ticks
+    #: since the last never-visited cell at the end (``stuck`` when it reached
+    #: the rule). ``consecutive_reversals`` is only read, from 4.9-era files.
     stuck_after: int | None = None
+    ticks_without_new_cell: int | None = None
     consecutive_reversals: int | None = None
 
 
@@ -214,7 +217,7 @@ class EpisodeRecorder:
         reason: str,
         *,
         stuck_after: int | None = None,
-        consecutive_reversals: int | None = None,
+        ticks_without_new_cell: int | None = None,
     ) -> None:
         """Record the terminal observation."""
         self._write(
@@ -223,7 +226,7 @@ class EpisodeRecorder:
                 reward=reward,
                 reason=reason,
                 stuck_after=stuck_after,
-                consecutive_reversals=consecutive_reversals,
+                ticks_without_new_cell=ticks_without_new_cell,
             )
         )
 

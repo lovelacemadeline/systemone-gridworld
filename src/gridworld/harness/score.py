@@ -6,7 +6,7 @@ Definitions (all computed from the per-tick :class:`TickLog` list):
   the same observation.
 - ``outcome``: ``won`` / ``died`` / ``timeout`` from the sim, or ``stopped`` /
   ``max_ticks`` when the harness cut the episode short, ``stuck`` (story 4.9:
-  ``--stuck-after`` consecutive immediate reversals; ``stuck: True``) or
+  ``--stuck-after`` ticks without entering a new cell; ``stuck: True``) or
   ``skipped`` (the viewer's N key).
 - story 4.9: skipped episodes are counted (``skipped``) but left out of the
   completion / died / timed out / stuck / cut short rates (whose denominator

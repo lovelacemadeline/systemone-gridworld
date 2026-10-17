@@ -26,17 +26,17 @@ view (``prefix_reloaded(tick, version)``).
 The episode ends when the sim ends it, when ``max_ticks`` is reached
 (``max_ticks``), or when the view is closed (``stopped``).
 
-**Stuck and skip** (story 4.9): the loop counts consecutive immediate
-reversals (a move that puts the player back on the cell it occupied two ticks
-earlier, having moved away; the same test as
-:func:`~gridworld.harness.score.oscillation`). Any other tick resets the count,
-and so does a tick on which System Two made a plan (``tick_extras()["plan"]``),
-so a replan gets a fresh chance. With ``stuck_after`` N > 0, the episode ends
+**Stuck and skip** (story 4.9, amended by 4.10): the loop counts the ticks
+since the player last entered a cell it had not visited earlier in the episode
+(the start cell counts as visited). A wait, a bump into a wall, an attack, a
+reversal or a step back onto a known cell all add one; only a new cell resets
+the count, and a plan does not (with ``replan_every`` below N a plan-reset
+made the rule unreachable). With ``stuck_after`` N > 0, the episode ends
 ``stuck`` with reward -1 when the count reaches N; the end record carries
-``stuck_after`` and ``consecutive_reversals``. A view with ``skip_requested``
+``stuck_after`` and ``ticks_without_new_cell``. A view with ``skip_requested``
 set (the N key) ends the episode ``skipped`` with reward 0 after the tick; the
 loop clears the flag at episode start and on use. A view exposing
-``reversal_streak`` is told ``(count, stuck_after)`` every tick. Precedence on
+``stuck_streak`` is told ``(count, stuck_after)`` every tick. Precedence on
 one tick: the sim's ending, ``stopped``, ``skipped``, ``stuck``,
 ``max_ticks``.
 
@@ -155,8 +155,8 @@ def run_episode(
         rec = EpisodeRecorder(record_path, header)
     ticks: list[TickLog] = []
     reason, reward = None, 0
-    streak = 0  # consecutive immediate reversals (story 4.9)
-    cells = [obs.player]
+    streak = 0  # ticks since the last never-visited cell (stories 4.9, 4.10)
+    visited = {obs.player}
     if view is not None and hasattr(view, "skip_requested"):
         view.skip_requested = False
     try:
@@ -262,11 +262,13 @@ def run_episode(
                     frame_sha256=built.frame_sha256,
                 )
             memory.observe(obs, built.text, action, result.observation)
-            cells.append(result.observation.player)
-            reversed_ = len(cells) >= 3 and cells[-1] == cells[-3] and cells[-1] != cells[-2]
-            streak = streak + 1 if reversed_ and extras.get("plan") is None else 0
-            if view is not None and hasattr(view, "reversal_streak"):
-                view.reversal_streak = (streak, stuck_after)
+            if result.observation.player in visited:
+                streak += 1
+            else:
+                visited.add(result.observation.player)
+                streak = 0
+            if view is not None and hasattr(view, "stuck_streak"):
+                view.stuck_streak = (streak, stuck_after)
             if hooks.after_tick:
                 hooks.after_tick(log)
             open_ = True
@@ -302,7 +304,7 @@ def run_episode(
         if rec is not None:
             if reason is not None:
                 stuck = (
-                    {"stuck_after": stuck_after, "consecutive_reversals": streak}
+                    {"stuck_after": stuck_after, "ticks_without_new_cell": streak}
                     if stuck_after > 0
                     else {}
                 )

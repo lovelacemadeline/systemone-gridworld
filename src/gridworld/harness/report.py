@@ -66,7 +66,7 @@ class RunMeta(BaseModel):
     #: and whether the naive sliding window was used.
     frames: int | None = None
     frame_window: bool = False
-    #: Story 4.9: consecutive immediate reversals that end an episode ``stuck`` (0 = off).
+    #: Stories 4.9/4.10: ticks without a new cell that end an episode ``stuck`` (0 = off).
     stuck_after: int = 0
     git_rev: str | None
     power: dict[str, Any]

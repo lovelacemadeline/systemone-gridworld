@@ -11,8 +11,8 @@ anchor:
   - symbol: "src/gridworld/harness/session.py::session_lines"
   - symbol: "src/gridworld/view.py::LiveView.streak_text"
   - test: "tests/test_stuck_skip.py::test_oscillating_backend_is_stuck_at_exactly_n"
-  - test: "tests/test_stuck_skip.py::test_a_non_reversal_move_resets_the_count"
-  - test: "tests/test_stuck_skip.py::test_a_plan_resets_the_count"
+  - test: "tests/test_stuck_skip.py::test_only_a_new_cell_resets_the_count"
+  - test: "tests/test_stuck_skip.py::test_a_plan_does_not_reset_the_count"
   - test: "tests/test_stuck_skip.py::test_skip_flag_ends_the_episode_with_reward_zero"
   - test: "tests/test_stuck_skip.py::test_skipped_episodes_are_listed_but_excluded"
   - test: "tests/test_stuck_skip.py::test_report_has_a_stuck_column_and_counts_stuck_as_not_completed"
@@ -21,6 +21,10 @@ anchor:
 ---
 
 # Story 4.9 — Stuck rule and a skip key
+
+> Amended by [story 4.10](4-10-stuck-means-no-new-cell.md): the reversal
+> count below never fired on real pacing or parking; the rule now counts ticks
+> without a new cell, and a plan no longer resets it.
 
 A model that ping-pongs between two cells burns the whole tick limit. The loop
 now counts **consecutive immediate reversals** — a move that puts the player

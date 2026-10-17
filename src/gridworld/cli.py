@@ -244,8 +244,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--stuck-after",
         type=int,
         default=0,
-        help="end an episode 'stuck' (reward -1) after N consecutive immediate reversals "
-        "(0 = off; a plan resets the count)",
+        help="end an episode 'stuck' (reward -1) after N ticks without entering a new cell "
+        "(0 = off; waits, wall bumps and revisits all count; a plan does not reset it)",
     )
     play.add_argument(
         "--legal-only", action="store_true", help="offer only actions that do something"

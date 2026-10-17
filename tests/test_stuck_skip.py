@@ -1,4 +1,4 @@
-"""Story 4.9 — the stuck rule (consecutive immediate reversals) and the skip key."""
+"""Stories 4.9 / 4.10 — the stuck rule (ticks without a new cell) and the skip key."""
 
 from __future__ import annotations
 
@@ -29,14 +29,14 @@ class SpyView:
 
     def __init__(self):
         self.skip_requested = False
-        self.reversal_streak = (0, 0)
+        self.stuck_streak = (0, 0)
         self.streaks: list[int] = []
         self.info_lines: list[str] = []
         self.flashes: list[str] = []
 
     def update(self, obs, probs=None, action=None, best=None, timing=None):
         if timing is not None:
-            self.streaks.append(self.reversal_streak[0])
+            self.streaks.append(self.stuck_streak[0])
         return True
 
     def flash(self, text, seconds=1.0, obs=None):
@@ -54,11 +54,11 @@ def test_oscillating_backend_is_stuck_at_exactly_n(tmp_path):
     s = run_episode(
         GridWorld(EMPTY), oscillate(), seed=SEED, stuck_after=4, record_path=path, view=view
     )
-    # tick 0 moves away; ticks 1..4 are the four consecutive reversals
+    # tick 0 moves onto a new cell; ticks 1..4 only revisit the two known cells
     assert (s.outcome, s.steps, s.stuck) == ("stuck", 5, True)
     assert view.streaks == [0, 1, 2, 3, 4]
     end = read_episode(path).end
-    assert (end.reason, end.reward, end.stuck_after, end.consecutive_reversals) == (
+    assert (end.reason, end.reward, end.stuck_after, end.ticks_without_new_cell) == (
         "stuck",
         -1,
         4,
@@ -69,7 +69,22 @@ def test_oscillating_backend_is_stuck_at_exactly_n(tmp_path):
     assert (off.outcome, off.stuck) == ("max_ticks", False)
 
 
-def test_a_non_reversal_move_resets_the_count():
+def test_only_a_new_cell_resets_the_count():
+    # west, east, west, west from (7, 0): the second west of each cycle reaches a new cell
+    view = SpyView()
+    s = run_episode(
+        GridWorld(EMPTY),
+        Scripted(["west", "east", "west", "west"]),
+        seed=SEED,
+        stuck_after=3,
+        max_ticks=8,
+        view=view,
+    )
+    assert s.outcome == "max_ticks" and view.streaks == [0, 1, 2, 0, 0, 1, 2, 0]
+
+
+def test_a_wait_does_not_reset_the_count():
+    # story 4.9 reset on any non-reversal tick, so a wait broke the streak
     view = SpyView()
     s = run_episode(
         GridWorld(EMPTY),
@@ -79,10 +94,11 @@ def test_a_non_reversal_move_resets_the_count():
         max_ticks=12,
         view=view,
     )
-    assert s.outcome == "max_ticks" and view.streaks[:6] == [0, 1, 2, 0, 0, 1]
+    assert (s.outcome, s.steps) == ("stuck", 4) and view.streaks == [0, 1, 2, 3]
 
 
-def test_a_plan_resets_the_count():
+def test_a_plan_does_not_reset_the_count():
+    # story 4.9 reset on every plan, so replan_every below N made the rule unreachable
     two = SystemTwo(
         FakePlanner(), ThinkConfig(trigger="rule", replan_every=3, cooldown=0), DEFAULT_PREFIX
     )
@@ -91,15 +107,78 @@ def test_a_plan_resets_the_count():
         GridWorld(EMPTY),
         oscillate(),
         seed=SEED,
-        stuck_after=3,
+        stuck_after=5,
         max_ticks=12,
         hooks=two.hooks(),
         view=view,
     )
-    assert [t for t, _ in two.plans] == [0, 3, 6, 9]
-    assert s.outcome == "max_ticks" and view.streaks == [0, 1, 2] * 4
-    # without the replans the same moves are stuck on the fourth tick
-    assert run_episode(GridWorld(EMPTY), oscillate(), seed=SEED, stuck_after=3).steps == 4
+    assert [t for t, _ in two.plans] == [0, 3]
+    assert (s.outcome, s.steps) == ("stuck", 6) and view.streaks == [0, 1, 2, 3, 4, 5]
+
+
+# Observed traces (E2B, image vt140, think on with replan_every 5, --stuck-after 10,
+# 2026-10-17): both ran 200 ticks to timeout. Seed 0 paces a column of ~10 cells
+# (114 reversals interleaved with waits/attacks); seed 7 parks on (0, 3) and waits.
+SEED0_ACTIONS = (
+    ["north"] * 5
+    + ["south"] * 7
+    + ["wait"] * 3
+    + ["north"] * 4
+    + ["south", "attack", "attack", "south", "south", "south"]
+    + ["north", "south"] * 2
+    + ["north", "west"]
+    + ["north", "south"] * 4
+    + ["north"]
+)
+SEED0_CELLS = [
+    (1, 7),
+    (1, 6),
+    (1, 5),
+    (1, 4),
+    (1, 3),
+    (1, 2),
+    (1, 3),
+    (1, 4),
+    (1, 5),
+    (1, 6),
+    (1, 7),
+    (1, 8),
+    (1, 9),
+    (1, 9),
+    (1, 9),
+    (1, 9),
+    (1, 8),
+    (1, 7),
+    (1, 6),
+    (1, 5),
+    (1, 6),
+    (1, 6),
+]
+SEED7_ACTIONS = ["south", "west", "south"] + ["wait"] * 37
+SEED7_CELLS = [(1, 1), (1, 2), (0, 2)] + [(0, 3)] * 10
+
+
+@pytest.mark.parametrize(
+    ("seed", "actions", "cells", "steps"),
+    [(0, SEED0_ACTIONS, SEED0_CELLS, 22), (7, SEED7_ACTIONS, SEED7_CELLS, 13)],
+)
+def test_observed_pacing_and_parking_are_stuck(tmp_path, seed, actions, cells, steps):
+    two = SystemTwo(
+        FakePlanner(), ThinkConfig(trigger="rule", replan_every=5, cooldown=0), DEFAULT_PREFIX
+    )
+    path = tmp_path / "ep.jsonl"
+    s = run_episode(
+        GridWorld(),
+        Scripted(actions),
+        seed=seed,
+        stuck_after=10,
+        hooks=two.hooks(),
+        record_path=path,
+    )
+    ep = read_episode(path)
+    assert [tuple(t.observation.player) for t in ep.ticks] == cells  # the recorded trajectory
+    assert (s.outcome, s.steps) == ("stuck", steps)
+    assert (ep.end.stuck_after, ep.end.ticks_without_new_cell) == (10, 10)
 
 
 def test_skip_flag_ends_the_episode_with_reward_zero(tmp_path):
@@ -188,9 +267,9 @@ def test_live_view_n_key_and_streak_text(monkeypatch):
 
     with LiveView(scale=1) as view:
         view.info_lines = session_lines([])
-        view.reversal_streak = (2, 4)
-        assert "reversals/ep -   in a row 2/4" in view._info()
-        view.reversal_streak = (1, 0)
-        assert "reversals/ep -   in a row 1" in view._info()
+        view.stuck_streak = (2, 4)
+        assert "reversals/ep -   no new cell 2/4" in view._info()
+        view.stuck_streak = (1, 0)
+        assert "reversals/ep -   no new cell 1" in view._info()
         pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_n))
         assert view._pump() and view.skip_requested
